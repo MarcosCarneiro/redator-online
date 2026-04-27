@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import imageCompression from 'browser-image-compression';
+import { Sparkles, Camera, Zap, Target, Lightbulb, FileText, Download, CheckCircle2, AlertCircle } from 'lucide-react';
 
 interface Competency {
   name: string;
@@ -55,7 +56,6 @@ export default function Home() {
     setError(null);
 
     try {
-      // 1. Comprimir a imagem para economizar tokens e banda
       const options = {
         maxSizeMB: 1,
         maxWidthOrHeight: 1920,
@@ -63,13 +63,11 @@ export default function Home() {
       };
       const compressedFile = await imageCompression(file, options);
       
-      // 2. Converter para Base64
       const reader = new FileReader();
       reader.readAsDataURL(compressedFile);
       reader.onloadend = async () => {
         const base64data = reader.result as string;
 
-        // 3. Enviar para a API de Transcrição
         const response = await fetch('/api/transcribe', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -135,7 +133,7 @@ export default function Home() {
       <section className="hero">
         <div className="hero-text">
           <div className="badge-new">
-            <span>✨</span> Nova IA Corretora 2026
+            <Sparkles size={16} /> Nova IA Corretora 2026
           </div>
           <h1>Alcance a sua <span>Nota 1000</span> com IA.</h1>
           <p>
@@ -146,6 +144,9 @@ export default function Home() {
             <button className="btn-primary" onClick={() => document.getElementById('editor')?.scrollIntoView({ behavior: 'smooth' })}>
               Começar agora
             </button>
+            <div style={{ fontSize: '0.9rem', color: 'var(--text-light)', fontWeight: 500 }}>
+              🚀 +15k redações corrigidas este mês
+            </div>
           </div>
         </div>
         <div className="hero-image">
@@ -162,21 +163,21 @@ export default function Home() {
 
       <section className="bento-grid">
         <div className="bento-item">
-          <div className="bento-icon">📸</div>
+          <div className="bento-icon"><Camera color="var(--primary)" /></div>
           <h3 style={{ marginBottom: '0.5rem' }}>Envio por Foto</h3>
           <p style={{ color: 'var(--text-light)', fontSize: '0.95rem' }}>
             Não perca tempo digitando. Tire uma foto da sua folha e a IA transcreve tudo.
           </p>
         </div>
         <div className="bento-item">
-          <div className="bento-icon">⚡</div>
+          <div className="bento-icon"><Zap color="var(--primary)" /></div>
           <h3 style={{ marginBottom: '0.5rem' }}>Resultado Instantâneo</h3>
           <p style={{ color: 'var(--text-light)', fontSize: '0.95rem' }}>
             Sua correção detalhada fica pronta em menos de 10 segundos.
           </p>
         </div>
         <div className="bento-item">
-          <div className="bento-icon">🎯</div>
+          <div className="bento-icon"><Target color="var(--primary)" /></div>
           <h3 style={{ marginBottom: '0.5rem' }}>Critérios Oficiais</h3>
           <p style={{ color: 'var(--text-light)', fontSize: '0.95rem' }}>
             Avaliação baseada nas 5 competências exigidas pela banca do ENEM.
@@ -202,11 +203,12 @@ export default function Home() {
             <label className="input-label" style={{ margin: 0 }}>Seu Texto</label>
             <button 
               className="btn-secondary" 
-              style={{ padding: '0.5rem 1rem', fontSize: '0.85rem' }}
+              style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '8px' }}
               onClick={() => fileInputRef.current?.click()}
               disabled={transcribing || loading}
             >
-              {transcribing ? 'Lendo imagem...' : '📸 Enviar foto da folha'}
+              <Camera size={16} />
+              {transcribing ? 'Lendo imagem...' : 'Enviar foto da folha'}
             </button>
             <input 
               type="file" 
@@ -263,7 +265,8 @@ export default function Home() {
         </div>
 
         {error && (
-          <div style={{ color: '#ef4444', textAlign: 'center', marginTop: '2rem', fontWeight: 600 }}>
+          <div style={{ color: '#ef4444', textAlign: 'center', marginTop: '2rem', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+            <AlertCircle size={20} />
             {error}
           </div>
         )}
@@ -282,7 +285,10 @@ export default function Home() {
               {evaluation.competencies.map((comp, index) => (
                 <div key={index} className="comp-card">
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <h3 style={{ color: 'var(--primary)' }}>{comp.name}</h3>
+                    <h3 style={{ color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <CheckCircle2 size={20} />
+                      {comp.name}
+                    </h3>
                     <span style={{ fontWeight: 800, fontSize: '1.2rem' }}>{comp.score} pts</span>
                   </div>
                   <div className="comp-progress">
@@ -294,20 +300,27 @@ export default function Home() {
                   <p style={{ color: 'var(--text-light)', fontSize: '0.95rem', lineHeight: 1.7 }}>
                     {comp.explanation}
                   </p>
-                  <div style={{ marginTop: '1.5rem', padding: '1rem', background: '#fff', borderRadius: '12px', border: '1px dashed #e2e8f0', fontSize: '0.9rem' }}>
-                    <strong>🎯 Como melhorar:</strong> {comp.tips}
+                  <div style={{ marginTop: '1.5rem', padding: '1rem', background: '#fff', borderRadius: '12px', border: '1px dashed #e2e8f0', fontSize: '0.9rem', display: 'flex', gap: '12px' }}>
+                    <Lightbulb className="text-amber-500" size={20} style={{ flexShrink: 0, color: '#f59e0b' }} />
+                    <div>
+                      <strong>Como melhorar:</strong> {comp.tips}
+                    </div>
                   </div>
                 </div>
               ))}
             </div>
 
             <div className="feedback-box">
-              <h3 style={{ marginBottom: '1rem', color: 'var(--primary)' }}>Resumo Estrutural</h3>
+              <h3 style={{ marginBottom: '1rem', color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <FileText size={20} />
+                Resumo Estrutural
+              </h3>
               <p style={{ color: 'var(--text-dark)', lineHeight: 1.8 }}>{evaluation.generalFeedback}</p>
             </div>
 
             <div style={{ textAlign: 'center', marginTop: '4rem' }}>
-              <button className="btn-secondary" onClick={() => window.print()}>
+              <button className="btn-secondary" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }} onClick={() => window.print()}>
+                <Download size={20} />
                 Exportar Relatório em PDF
               </button>
             </div>
