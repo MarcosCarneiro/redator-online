@@ -23,7 +23,6 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const resultsRef = useRef<HTMLDivElement>(null);
 
-  // Carregar rascunho salvo ao iniciar
   useEffect(() => {
     const savedEssay = localStorage.getItem('redator_draft');
     const savedTheme = localStorage.getItem('redator_theme');
@@ -31,7 +30,6 @@ export default function Home() {
     if (savedTheme) setTheme(savedTheme);
   }, []);
 
-  // Salvar rascunho automaticamente
   useEffect(() => {
     localStorage.setItem('redator_draft', essay);
     localStorage.setItem('redator_theme', theme);
@@ -48,100 +46,131 @@ export default function Home() {
 
   const handleSubmit = async () => {
     if (!essay.trim() || !theme.trim()) return;
-
     setLoading(true);
     setError(null);
     setEvaluation(null);
-
     try {
       const response = await fetch('/api/evaluate', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: essay, theme: theme }),
       });
-
-      if (!response.ok) {
-        throw new Error('Falha ao processar a redação. Tente novamente.');
-      }
-
+      if (!response.ok) throw new Error('Falha ao processar a redação.');
       const data = await response.json();
       setEvaluation(data);
     } catch (err: any) {
-      setError(err.message || 'Ocorreu um erro inesperado.');
+      setError(err.message || 'Erro inesperado.');
     } finally {
       setLoading(false);
     }
   };
 
   const getScoreClass = (score: number) => {
-    if (score <= 80) return 'score-low';
-    if (score <= 160) return 'score-mid';
-    return 'score-high';
-  };
-
-  const handlePrint = () => {
-    window.print();
+    if (score <= 80) return 'bar-low';
+    if (score <= 160) return 'bar-mid';
+    return 'bar-high';
   };
 
   return (
     <>
       <nav className="navbar">
         <div className="nav-content">
-          <a href="#" className="logo">Redator<span>Online</span></a>
-          <div style={{ fontSize: '0.9rem', color: 'var(--text-muted)', fontWeight: 600 }}>
-            Plataforma Digital de Correção
+          <a href="#" className="logo">
+            <div className="logo-dot"></div>
+            Redator<span>Online</span>
+          </a>
+          <div className="nav-links">
+            <a>Metodologia</a>
+            <a>Temas</a>
+            <a>Planos</a>
           </div>
         </div>
       </nav>
 
-      <div className="container">
-        <section className="hero">
-          <div className="hero-text">
-            <h1>Sua nota 1000 começa <span>aqui.</span></h1>
-            <p>
-              Pratique sua redação com temas atuais e receba feedback instantâneo 
-              baseado nos critérios oficiais do ENEM através da nossa Inteligência Artificial.
-            </p>
+      <section className="hero">
+        <div className="hero-text">
+          <div className="badge-new">
+            <span>✨</span> Nova IA Corretora 2026
           </div>
-          <div className="hero-image">
-            <svg viewBox="0 0 500 500" xmlns="http://www.w3.org/2000/svg">
-              <rect x="100" y="100" width="300" height="350" rx="20" fill="#fff" stroke="#6c5ce7" strokeWidth="4"/>
-              <line x1="140" y1="180" x2="360" y2="180" stroke="#e2e8f0" strokeWidth="4" strokeLinecap="round"/>
-              <line x1="140" y1="230" x2="360" y2="230" stroke="#e2e8f0" strokeWidth="4" strokeLinecap="round"/>
-              <line x1="140" y1="280" x2="300" y2="280" stroke="#e2e8f0" strokeWidth="4" strokeLinecap="round"/>
-              <path d="M380 150 L420 110 L440 130 L400 170 Z" fill="#6c5ce7"/>
-              <circle cx="250" cy="400" r="30" fill="#a29bfe" opacity="0.3"/>
-              <rect x="350" y="320" width="80" height="100" rx="10" fill="#6c5ce7" opacity="0.1"/>
-            </svg>
+          <h1>Alcance a sua <span>Nota 1000</span> com IA.</h1>
+          <p>
+            A plataforma mais avançada de correção de redação. 
+            Feedback instantâneo, técnico e humanizado seguindo os critérios oficiais do INEP.
+          </p>
+          <div style={{ marginTop: '2.5rem', display: 'flex', gap: '1rem', alignItems: 'center' }}>
+            <button className="btn-primary" onClick={() => document.getElementById('editor')?.scrollIntoView({ behavior: 'smooth' })}>
+              Começar agora
+            </button>
+            <div style={{ fontSize: '0.9rem', color: 'var(--text-light)', fontWeight: 500 }}>
+              🚀 +15k redações corrigidas este mês
+            </div>
           </div>
-        </section>
+        </div>
+        <div className="hero-image">
+          <svg viewBox="0 0 500 500" xmlns="http://www.w3.org/2000/svg" style={{ filter: 'drop-shadow(0 20px 30px rgba(0,0,0,0.1))' }}>
+            <rect x="50" y="50" width="400" height="400" rx="40" fill="#fff" />
+            <path d="M150 150 H350" stroke="#f1f5f9" strokeWidth="20" strokeLinecap="round" />
+            <path d="M150 220 H350" stroke="#f1f5f9" strokeWidth="20" strokeLinecap="round" />
+            <path d="M150 290 H280" stroke="#f1f5f9" strokeWidth="20" strokeLinecap="round" />
+            <circle cx="380" cy="380" r="50" fill="var(--primary-light)" />
+            <path d="M365 380 L375 390 L395 370" stroke="white" strokeWidth="6" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </div>
+      </section>
 
-        <main>
-          <div className="theme-input-container">
-            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 700, color: 'var(--primary)' }}>
-              TEMA DA REDAÇÃO
-            </label>
-            <input
-              type="text"
-              className="theme-input"
-              placeholder="Digite ou cole aqui o tema proposto..."
-              value={theme}
-              onChange={(e) => setTheme(e.target.value)}
-              disabled={loading}
-            />
-          </div>
+      <section className="bento-grid">
+        <div className="bento-item">
+          <div className="bento-icon">🎯</div>
+          <h3 style={{ marginBottom: '0.5rem' }}>Critérios Oficiais</h3>
+          <p style={{ color: 'var(--text-light)', fontSize: '0.95rem' }}>
+            Avaliação baseada nas 5 competências exigidas pela banca do ENEM.
+          </p>
+        </div>
+        <div className="bento-item">
+          <div className="bento-icon">⚡</div>
+          <h3 style={{ marginBottom: '0.5rem' }}>Resultado Instantâneo</h3>
+          <p style={{ color: 'var(--text-light)', fontSize: '0.95rem' }}>
+            Sua correção detalhada fica pronta em menos de 10 segundos.
+          </p>
+        </div>
+        <div className="bento-item">
+          <div className="bento-icon">💡</div>
+          <h3 style={{ marginBottom: '0.5rem' }}>Dicas de Mestre</h3>
+          <p style={{ color: 'var(--text-light)', fontSize: '0.95rem' }}>
+            Sugestões personalizadas para você evoluir em cada competência.
+          </p>
+        </div>
+      </section>
 
-          <div style={{ marginBottom: '0.5rem', fontWeight: 700, color: 'var(--primary)' }}>
-            SUA REDAÇÃO
-          </div>
-          <div className="notebook-wrapper">
-            <div className="notebook">
-              <div className="lines">
+      <div className="editor-container" id="editor">
+        <div className="input-group">
+          <label className="input-label">Tema da Redação</label>
+          <input
+            type="text"
+            className="theme-input"
+            placeholder="Ex: Os desafios da educação inclusiva no Brasil..."
+            value={theme}
+            onChange={(e) => setTheme(e.target.value)}
+            disabled={loading}
+          />
+        </div>
+
+        <div className="input-group">
+          <label className="input-label">Seu Texto</label>
+          <div className="notebook-card">
+            <div className="notebook-header">
+              <div style={{ display: 'flex', gap: '6px' }}>
+                <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#ef4444' }}></div>
+                <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#fbbf24' }}></div>
+                <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#10b981' }}></div>
+              </div>
+              <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#94a3b8' }}>MODO ESCRITA ATIVO</div>
+            </div>
+            <div className="notebook-body">
+              <div className="lines-container">
                 <textarea
                   className="essay-textarea"
-                  placeholder="Inicie sua redação com uma introdução impactante..."
+                  placeholder="Escreva sua redação aqui..."
                   value={essay}
                   onChange={(e) => setEssay(e.target.value)}
                   disabled={loading}
@@ -149,89 +178,84 @@ export default function Home() {
               </div>
             </div>
             <div className="status-bar">
-              <div className="status-item">Palavras: <span>{wordCount}</span></div>
-              <div className="status-item">Linhas (est.): <span style={{ color: lineEstimate < 7 ? 'var(--score-low)' : 'var(--primary)' }}>{lineEstimate} / 30</span></div>
-              <div className="status-item" style={{ marginLeft: 'auto', fontStyle: 'italic' }}>
-                {essay.length > 0 ? 'Rascunho salvo automaticamente' : 'Comece a escrever para salvar'}
-              </div>
+              <div>Palavras: <span>{wordCount}</span></div>
+              <div>Linhas (est.): <span style={{ color: lineEstimate < 7 ? '#ef4444' : 'inherit' }}>{lineEstimate} / 30</span></div>
+              <div style={{ marginLeft: 'auto', opacity: 0.6 }}>Autosave on</div>
             </div>
           </div>
+        </div>
 
-          <div className="actions">
-            <button
-              className="btn-submit"
-              onClick={handleSubmit}
-              disabled={loading || !essay.trim() || !theme.trim()}
-            >
-              {loading ? 'Processando...' : 'Avaliar Redação'}
-            </button>
-            
-            {evaluation && (
-              <button className="btn-print" onClick={handlePrint}>
-                Salvar em PDF
-              </button>
-            )}
+        <div className="actions">
+          <button
+            className="btn-primary"
+            onClick={handleSubmit}
+            disabled={loading || !essay.trim() || !theme.trim()}
+          >
+            {loading ? 'Analisando...' : 'Finalizar e Corrigir'}
+          </button>
+        </div>
+
+        {error && (
+          <div style={{ color: '#ef4444', textAlign: 'center', marginTop: '2rem', fontWeight: 600 }}>
+            {error}
           </div>
+        )}
 
-          {error && (
-            <div style={{ color: '#e74c3c', textAlign: 'center', marginTop: '1rem', fontWeight: 600 }}>
-              ⚠️ {error}
-            </div>
-          )}
-
-          {loading && (
-            <div className="loading-container" style={{ textAlign: 'center', marginTop: '2rem' }}>
-              <div className="spinner"></div>
-              <p style={{ color: 'var(--primary)', fontWeight: 600 }}>
-                Nossa IA está analisando sua redação...
-              </p>
-            </div>
-          )}
-
-          {evaluation && (
-            <div className="results" ref={resultsRef}>
-              <h2 style={{ color: 'var(--text-main)' }}>Análise Detalhada</h2>
-              
-              <div className="final-score-circle">
-                <span style={{ fontSize: '0.9rem', textTransform: 'uppercase', letterSpacing: '2px' }}>Nota Total</span>
-                <span className="number">{evaluation.totalScore}</span>
+        {evaluation && (
+          <div className="results-section" ref={resultsRef}>
+            <div className="score-hero">
+              <div className="score-circle">
+                <span className="lbl">Nota Final</span>
+                <span className="val">{evaluation.totalScore}</span>
               </div>
+              <h2 style={{ fontSize: '2.5rem' }}>Sua Análise está pronta!</h2>
+            </div>
 
+            <div className="competency-grid">
               {evaluation.competencies.map((comp, index) => (
-                <div key={index} className="competency-card">
-                  <div className="comp-info">
-                    <h3 style={{ fontSize: '1.2rem' }}>{comp.name}</h3>
-                    <span style={{ fontWeight: 800, color: 'var(--primary)', fontSize: '1.2rem' }}>
-                      {comp.score} <span style={{ color: '#cbd5e0', fontSize: '1rem' }}>/ 200</span>
-                    </span>
+                <div key={index} className="comp-card">
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <h3 style={{ color: 'var(--primary)' }}>{comp.name}</h3>
+                    <span style={{ fontWeight: 800, fontSize: '1.2rem' }}>{comp.score} pts</span>
                   </div>
-                  
-                  <div className="progress-bar-bg">
+                  <div className="comp-progress">
                     <div 
-                      className={`progress-bar-fill ${getScoreClass(comp.score)}`}
+                      className={`comp-bar ${getScoreClass(comp.score)}`}
                       style={{ width: `${(comp.score / 200) * 100}%` }}
                     ></div>
                   </div>
-
-                  <p style={{ lineHeight: '1.7', color: 'var(--text-muted)' }}>{comp.explanation}</p>
-                  
-                  <div className="tip-box">
-                    <strong style={{ color: '#0369a1' }}>🎯 Dica do Especialista:</strong> {comp.tips}
+                  <p style={{ color: 'var(--text-light)', fontSize: '0.95rem', lineHeight: 1.7 }}>
+                    {comp.explanation}
+                  </p>
+                  <div style={{ marginTop: '1.5rem', padding: '1rem', background: '#fff', borderRadius: '12px', border: '1px dashed #e2e8f0', fontSize: '0.9rem' }}>
+                    <strong>🎯 Como melhorar:</strong> {comp.tips}
                   </div>
                 </div>
               ))}
-              
-              <div style={{ marginTop: '3rem', padding: '2rem', background: 'var(--bg-color)', borderRadius: '12px', borderLeft: '6px solid var(--primary)' }}>
-                <h3 style={{ marginBottom: '1rem' }}>Feedback Geral</h3>
-                <p style={{ lineHeight: '1.8', color: 'var(--text-main)' }}>{evaluation.generalFeedback}</p>
-              </div>
             </div>
-          )}
-        </main>
+
+            <div className="feedback-box">
+              <h3 style={{ marginBottom: '1rem', color: 'var(--primary)' }}>Resumo Estrutural</h3>
+              <p style={{ color: 'var(--text-dark)', lineHeight: 1.8 }}>{evaluation.generalFeedback}</p>
+            </div>
+
+            <div style={{ textAlign: 'center', marginTop: '4rem' }}>
+              <button className="btn-secondary" onClick={() => window.print()}>
+                Exportar Relatório em PDF
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
-      <footer style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
-        &copy; 2026 Redator Online - Prática de Redação para o ENEM
+      <footer style={{ background: '#f8fafc', padding: '4rem 2rem', borderTop: '1px solid #f1f5f9', textAlign: 'center' }}>
+        <div className="logo" style={{ justifyContent: 'center', marginBottom: '1rem' }}>
+          <div className="logo-dot"></div>
+          Redator<span>Online</span>
+        </div>
+        <p style={{ color: 'var(--text-light)', fontSize: '0.9rem' }}>
+          &copy; 2026 Redator Online. A melhor tecnologia para o seu futuro.
+        </p>
       </footer>
     </>
   );
