@@ -11,6 +11,7 @@ import { Hero } from '@/components/Hero';
 import { BentoGrid } from '@/components/BentoGrid';
 import { EssayEditor } from '@/components/EssayEditor';
 import { EvaluationResults } from '@/components/EvaluationResults';
+import { AnalysisLoading } from '@/components/AnalysisLoading';
 
 // Types
 export interface Competency {
@@ -137,6 +138,8 @@ export default function Home() {
   return (
     <>
       <Navbar />
+      
+      {loading && <AnalysisLoading />}
 
       <div className="container">
         <Hero onStartClick={() => document.getElementById('editor')?.scrollIntoView({ behavior: 'smooth' })} />
