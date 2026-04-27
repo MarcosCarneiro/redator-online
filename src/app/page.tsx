@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import imageCompression from 'browser-image-compression';
 
 interface Competency {
   name: string;
@@ -19,9 +20,11 @@ export default function Home() {
   const [essay, setEssay] = useState('');
   const [theme, setTheme] = useState('');
   const [loading, setLoading] = useState(false);
+  const [transcribing, setTranscribing] = useState(false);
   const [evaluation, setEvaluation] = useState<Evaluation | null>(null);
   const [error, setError] = useState<string | null>(null);
   const resultsRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const savedEssay = localStorage.getItem('redator_draft');
@@ -44,6 +47,47 @@ export default function Home() {
   const wordCount = essay.trim() === '' ? 0 : essay.trim().split(/\s+/).length;
   const lineEstimate = Math.max(0, Math.ceil(essay.split('\n').length + (essay.length / 80)));
 
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setTranscribing(true);
+    setError(null);
+
+    try {
+      // 1. Comprimir a imagem para economizar tokens e banda
+      const options = {
+        maxSizeMB: 1,
+        maxWidthOrHeight: 1920,
+        useWebWorker: true
+      };
+      const compressedFile = await imageCompression(file, options);
+      
+      // 2. Converter para Base64
+      const reader = new FileReader();
+      reader.readAsDataURL(compressedFile);
+      reader.onloadend = async () => {
+        const base64data = reader.result as string;
+
+        // 3. Enviar para a API de Transcrição
+        const response = await fetch('/api/transcribe', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ image: base64data }),
+        });
+
+        if (!response.ok) throw new Error('Falha ao transcrever a imagem.');
+
+        const data = await response.json();
+        setEssay(prev => prev + (prev ? '\n\n' : '') + data.text);
+        setTranscribing(false);
+      };
+    } catch (err: any) {
+      setError('Erro ao processar imagem: ' + err.message);
+      setTranscribing(false);
+    }
+  };
+
   const handleSubmit = async () => {
     if (!essay.trim() || !theme.trim()) return;
     setLoading(true);
@@ -55,13 +99,8 @@ export default function Home() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: essay, theme: theme }),
       });
-
-      if (response.status === 429) {
-        throw new Error('Você atingiu o limite de 3 correções por hora. Descanse um pouco e volte logo!');
-      }
-
-      if (!response.ok) throw new Error('Falha ao processar a redação. Verifique sua conexão.');
-      
+      if (response.status === 429) throw new Error('Limite de 3 correções por hora atingido.');
+      if (!response.ok) throw new Error('Falha ao processar a redação.');
       const data = await response.json();
       setEvaluation(data);
     } catch (err: any) {
@@ -101,15 +140,12 @@ export default function Home() {
           <h1>Alcance a sua <span>Nota 1000</span> com IA.</h1>
           <p>
             A plataforma mais avançada de correção de redação. 
-            Feedback instantâneo, técnico e humanizado seguindo os critérios oficiais do INEP.
+            Envie uma foto da sua folha ou escreva diretamente no nosso editor.
           </p>
           <div style={{ marginTop: '2.5rem', display: 'flex', gap: '1rem', alignItems: 'center' }}>
             <button className="btn-primary" onClick={() => document.getElementById('editor')?.scrollIntoView({ behavior: 'smooth' })}>
               Começar agora
             </button>
-            <div style={{ fontSize: '0.9rem', color: 'var(--text-light)', fontWeight: 500 }}>
-              🚀 +15k redações corrigidas este mês
-            </div>
           </div>
         </div>
         <div className="hero-image">
@@ -126,10 +162,10 @@ export default function Home() {
 
       <section className="bento-grid">
         <div className="bento-item">
-          <div className="bento-icon">🎯</div>
-          <h3 style={{ marginBottom: '0.5rem' }}>Critérios Oficiais</h3>
+          <div className="bento-icon">📸</div>
+          <h3 style={{ marginBottom: '0.5rem' }}>Envio por Foto</h3>
           <p style={{ color: 'var(--text-light)', fontSize: '0.95rem' }}>
-            Avaliação baseada nas 5 competências exigidas pela banca do ENEM.
+            Não perca tempo digitando. Tire uma foto da sua folha e a IA transcreve tudo.
           </p>
         </div>
         <div className="bento-item">
@@ -140,10 +176,10 @@ export default function Home() {
           </p>
         </div>
         <div className="bento-item">
-          <div className="bento-icon">💡</div>
-          <h3 style={{ marginBottom: '0.5rem' }}>Dicas de Mestre</h3>
+          <div className="bento-icon">🎯</div>
+          <h3 style={{ marginBottom: '0.5rem' }}>Critérios Oficiais</h3>
           <p style={{ color: 'var(--text-light)', fontSize: '0.95rem' }}>
-            Sugestões personalizadas para você evoluir em cada competência.
+            Avaliação baseada nas 5 competências exigidas pela banca do ENEM.
           </p>
         </div>
       </section>
@@ -157,12 +193,30 @@ export default function Home() {
             placeholder="Ex: Os desafios da educação inclusiva no Brasil..."
             value={theme}
             onChange={(e) => setTheme(e.target.value)}
-            disabled={loading}
+            disabled={loading || transcribing}
           />
         </div>
 
         <div className="input-group">
-          <label className="input-label">Seu Texto</label>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '0.75rem' }}>
+            <label className="input-label" style={{ margin: 0 }}>Seu Texto</label>
+            <button 
+              className="btn-secondary" 
+              style={{ padding: '0.5rem 1rem', fontSize: '0.85rem' }}
+              onClick={() => fileInputRef.current?.click()}
+              disabled={transcribing || loading}
+            >
+              {transcribing ? 'Lendo imagem...' : '📸 Enviar foto da folha'}
+            </button>
+            <input 
+              type="file" 
+              ref={fileInputRef} 
+              hidden 
+              accept="image/*" 
+              onChange={handleImageUpload}
+            />
+          </div>
+          
           <div className="notebook-card">
             <div className="notebook-header">
               <div style={{ display: 'flex', gap: '6px' }}>
@@ -170,18 +224,25 @@ export default function Home() {
                 <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#fbbf24' }}></div>
                 <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#10b981' }}></div>
               </div>
-              <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#94a3b8' }}>MODO ESCRITA ATIVO</div>
+              <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#94a3b8' }}>
+                {transcribing ? 'IA ESTÁ TRANSCREVENDO...' : 'MODO ESCRITA ATIVO'}
+              </div>
             </div>
             <div className="notebook-body">
               <div className="lines-container">
                 <textarea
                   className="essay-textarea"
-                  placeholder="Escreva sua redação aqui..."
+                  placeholder="Escreva sua redação ou envie uma foto para transcrever..."
                   value={essay}
                   onChange={(e) => setEssay(e.target.value)}
-                  disabled={loading}
+                  disabled={loading || transcribing}
                 />
               </div>
+              {transcribing && (
+                <div style={{ position: 'absolute', inset: 0, background: 'rgba(255,255,255,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10, borderRadius: 'var(--radius-lg)' }}>
+                   <div className="spinner"></div>
+                </div>
+              )}
             </div>
             <div className="status-bar">
               <div>Palavras: <span>{wordCount}</span></div>
@@ -195,7 +256,7 @@ export default function Home() {
           <button
             className="btn-primary"
             onClick={handleSubmit}
-            disabled={loading || !essay.trim() || !theme.trim()}
+            disabled={loading || transcribing || !essay.trim() || !theme.trim()}
           >
             {loading ? 'Analisando...' : 'Finalizar e Corrigir'}
           </button>
