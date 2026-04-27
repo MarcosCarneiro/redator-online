@@ -55,7 +55,13 @@ export default function Home() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: essay, theme: theme }),
       });
-      if (!response.ok) throw new Error('Falha ao processar a redação.');
+
+      if (response.status === 429) {
+        throw new Error('Você atingiu o limite de 3 correções por hora. Descanse um pouco e volte logo!');
+      }
+
+      if (!response.ok) throw new Error('Falha ao processar a redação. Verifique sua conexão.');
+      
       const data = await response.json();
       setEvaluation(data);
     } catch (err: any) {

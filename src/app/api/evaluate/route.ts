@@ -1,46 +1,85 @@
 import { OpenAI } from 'openai';
 import { NextResponse } from 'next/server';
+import { z } from 'zod';
+
+// Schema para validação da resposta da IA
+const EvaluationSchema = z.object({
+  totalScore: z.number().min(0).max(1000),
+  competencies: z.array(z.object({
+    name: z.string(),
+    score: z.number().min(0).max(200),
+    explanation: z.string(),
+    tips: z.string()
+  })).length(5),
+  generalFeedback: z.string()
+});
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
+// Simples Rate Limiting em memória (Para produção real, use Redis/Upstash)
+const rateLimitMap = new Map<string, { count: number; lastReset: number }>();
+const RATE_LIMIT_COUNT = 3;
+const RATE_LIMIT_WINDOW = 60 * 60 * 1000; // 1 hora
+
+function isRateLimited(ip: string): boolean {
+  const now = Date.now();
+  const record = rateLimitMap.get(ip);
+
+  if (!record || (now - record.lastReset) > RATE_LIMIT_WINDOW) {
+    rateLimitMap.set(ip, { count: 1, lastReset: now });
+    return false;
+  }
+
+  if (record.count >= RATE_LIMIT_COUNT) {
+    return true;
+  }
+
+  record.count++;
+  return false;
+}
+
 const SYSTEM_PROMPT = `
 Você é um corretor oficial e experiente de redações do ENEM. Sua tarefa é avaliar a redação de forma justa, técnica e encorajadora, seguindo RIGOROSAMENTE o Manual do Corretor do INEP.
 
-Instruções de Calibração (Para evitar ser excessivamente punitivo):
-- Competência 1: A nota 200 admite até dois desvios gramaticais ou uma falha de estrutura sintática, desde que sejam excepcionais e não recorrentes. Não retire pontos por erros isolados que não prejudicam a fluidez.
-- Competência 2: Se o aluno apresentar um repertório legitimado (citando um autor, fato histórico, livro, etc.), pertinente ao tema e com uso produtivo, ele deve receber 200.
-- Competência 3: Avalie o projeto de texto. Se a argumentação é clara, organizada e defende um ponto de vista com autoria, a nota deve ser alta.
-- Competência 4: Busque pela presença de conectivos variados entre parágrafos e entre frases. Se o texto flui bem e usa operadores argumentativos, dê 200.
-- Competência 5: Seja objetivo. A proposta de intervenção deve ter: Agente, Ação, Meio/Modo, Efeito e Detalhamento. Se os 5 elementos estão presentes e são claros, a nota é 200, independente da viabilidade política da proposta.
+Instruções de Calibração:
+- Competência 1: Admite até dois desvios gramaticais para nota 200.
+- Competência 2: Repertório legitimado, pertinente e produtivo garante 200.
+- Competência 3: Projeto de texto estratégico e autoria garantem 200.
+- Competência 4: Presença de conectivos variados entre parágrafos e frases garante 200.
+- Competência 5: Presença dos 5 elementos (Agente, Ação, Meio, Efeito, Detalhamento) garante 200.
 
-Notas: 0, 40, 80, 120, 160, 200 para cada competência.
-
-Você DEVE retornar a resposta EXCLUSIVAMENTE em formato JSON:
+Formato de Saída (JSON Estrito):
 {
-  "totalScore": number,
+  "totalScore": soma_das_notas,
   "competencies": [
-    {
-      "name": "Competência 1: Norma Culta",
-      "score": number,
-      "explanation": "Explicação técnica citando pontos do texto",
-      "tips": "Como chegar ao próximo nível ou manter o 200"
-    },
-    ...
+    { "name": "Competência 1: Norma Culta", "score": 200, "explanation": "...", "tips": "..." },
+    { "name": "Competência 2: Proposta e Repertório", "score": 200, "explanation": "...", "tips": "..." },
+    { "name": "Competência 3: Projeto de Texto", "score": 200, "explanation": "...", "tips": "..." },
+    { "name": "Competência 4: Coesão", "score": 200, "explanation": "...", "tips": "..." },
+    { "name": "Competência 5: Proposta de Intervenção", "score": 200, "explanation": "...", "tips": "..." }
   ],
-  "generalFeedback": "Feedback encorajador e resumo dos pontos fortes e a melhorar."
+  "generalFeedback": "..."
 }
-Responda sempre em Português.
 `;
 
 export async function POST(req: Request) {
   try {
+    const ip = req.headers.get('x-forwarded-for') || 'anonymous';
+    
+    if (isRateLimited(ip)) {
+      return NextResponse.json(
+        { error: 'Limite de correções atingido. Tente novamente em uma hora.' },
+        { status: 429 }
+      );
+    }
+
     const { text, theme } = await req.json();
 
-    if (!text || text.length < 100) {
+    if (!text || text.length < 150) {
       return NextResponse.json(
-        { error: 'A redação é muito curta para ser avaliada.' },
+        { error: 'A redação é muito curta. Escreva pelo menos 150 caracteres.' },
         { status: 400 }
       );
     }
@@ -54,27 +93,40 @@ export async function POST(req: Request) {
 
     if (!process.env.OPENAI_API_KEY) {
       return NextResponse.json(
-        { error: 'Configuração da API não encontrada.' },
+        { error: 'Erro de configuração no servidor.' },
         { status: 500 }
       );
     }
 
     const response = await openai.chat.completions.create({
-      model: 'gpt-4o', 
+      model: 'gpt-4o',
       messages: [
         { role: 'system', content: SYSTEM_PROMPT },
-        { role: 'user', content: `Tema da Redação: ${theme}\n\nTexto da Redação:\n${text}` },
+        { role: 'user', content: `TEMA: ${theme}\n\nTEXTO: ${text}` },
       ],
       response_format: { type: 'json_object' },
+      temperature: 0.3, // Menor temperatura para respostas mais consistentes
     });
 
-    const result = JSON.parse(response.choices[0].message.content || '{}');
+    const rawContent = response.choices[0].message.content;
+    const parsedData = JSON.parse(rawContent || '{}');
+    
+    // Validação Robusta com Zod
+    const validatedData = EvaluationSchema.parse(parsedData);
 
-    return NextResponse.json(result);
+    return NextResponse.json(validatedData);
   } catch (error: any) {
-    console.error('OpenAI Error:', error);
+    console.error('API Error:', error);
+    
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        { error: 'A IA gerou uma resposta inválida. Por favor, tente novamente.' },
+        { status: 502 }
+      );
+    }
+
     return NextResponse.json(
-      { error: 'Erro ao processar a correção com a IA.' },
+      { error: 'Ocorreu um erro ao processar sua redação.' },
       { status: 500 }
     );
   }
