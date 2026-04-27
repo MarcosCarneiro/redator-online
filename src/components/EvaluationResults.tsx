@@ -15,10 +15,12 @@ interface Evaluation {
 
 interface EvaluationResultsProps {
   evaluation: Evaluation;
+  theme: string;
+  essay: string;
   resultsRef: React.RefObject<HTMLDivElement | null>;
 }
 
-export const EvaluationResults = ({ evaluation, resultsRef }: EvaluationResultsProps) => {
+export const EvaluationResults = ({ evaluation, theme, essay, resultsRef }: EvaluationResultsProps) => {
   const getScoreClass = (score: number) => {
     if (score <= 80) return 'bar-low';
     if (score <= 160) return 'bar-mid';
@@ -27,6 +29,20 @@ export const EvaluationResults = ({ evaluation, resultsRef }: EvaluationResultsP
 
   return (
     <div className="results-section" ref={resultsRef}>
+      <div className="print-only">
+        <h1 style={{ color: 'var(--primary)', marginBottom: '1rem' }}>Relatório de Avaliação - Redator Online</h1>
+        <div style={{ marginBottom: '2rem', padding: '1.5rem', background: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+          <h2 style={{ fontSize: '1.2rem', marginBottom: '0.5rem', color: 'var(--primary)' }}>Tema:</h2>
+          <p style={{ fontWeight: 600 }}>{theme}</p>
+        </div>
+        
+        <div style={{ marginBottom: '3rem', padding: '1.5rem', background: '#fff', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+          <h2 style={{ fontSize: '1.2rem', marginBottom: '1rem', color: 'var(--primary)' }}>Sua Redação:</h2>
+          <p style={{ whiteSpace: 'pre-wrap', lineHeight: 1.6, fontSize: '0.95rem' }}>{essay}</p>
+        </div>
+        <hr style={{ margin: '2rem 0', border: '0', borderTop: '2px solid #e2e8f0' }} />
+      </div>
+
       <div className="score-hero">
         <div className="score-circle">
           <span className="lbl">Nota Final</span>

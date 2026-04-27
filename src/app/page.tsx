@@ -152,7 +152,12 @@ export default function Home() {
           )}
 
           {evaluation && (
-            <EvaluationResults evaluation={evaluation} resultsRef={resultsRef} />
+            <EvaluationResults 
+              evaluation={evaluation} 
+              theme={theme}
+              essay={essay}
+              resultsRef={resultsRef} 
+            />
           )}
         </main>
       </div>

@@ -393,6 +393,61 @@ h1, h2, h3 {
   padding: 0 1rem;
 }
 
+.print-only {
+  display: none;
+}
+
+@media print {
+  @page {
+    margin: 2cm;
+  }
+
+  body * {
+    visibility: hidden;
+  }
+
+  .results-section, .results-section * {
+    visibility: visible;
+  }
+
+  .results-section {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    padding: 0;
+    margin: 0;
+    box-shadow: none;
+    border-radius: 0;
+    background: white;
+  }
+
+  .print-only {
+    display: block;
+    visibility: visible;
+  }
+
+  .navbar, .hero, .bento-grid, .editor-container, .footer, footer, .btn-secondary, .actions {
+    display: none !important;
+  }
+
+  /* Reset some styles for better printing */
+  .results-section {
+    max-width: 100% !important;
+  }
+
+  .comp-card {
+    break-inside: avoid;
+    background: #fff !important;
+    border: 1px solid #e2e8f0 !important;
+  }
+
+  .comp-bar, .score-circle, .badge-new {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+}
+
 @media (max-width: 1024px) {
   .hero { grid-template-columns: 1fr; text-align: center; padding: 4rem 2rem; }
   .hero p { margin: 0 auto; }
