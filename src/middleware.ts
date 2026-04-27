@@ -1,10 +1,10 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 
-// Define as rotas que podem ser acessadas sem login
+// Define public routes
 const isPublicRoute = createRouteMatcher([
   '/', 
-  '/api/transcribe', // Mantendo aberto por enquanto para teste
-  '/api/evaluate'    // Mantendo aberto por enquanto para teste
+  '/api/transcribe', 
+  '/api/evaluate'
 ]);
 
 export default clerkMiddleware(async (auth, request) => {
@@ -15,9 +15,9 @@ export default clerkMiddleware(async (auth, request) => {
 
 export const config = {
   matcher: [
-    // Pula arquivos internos do Next.js e arquivos estáticos
+    // Skip Next.js internals and all static files, unless found in search params
     '/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)',
-    // Sempre roda para rotas de API
+    // Always run for API routes
     '/(api|trpc)(.*)',
   ],
 };
