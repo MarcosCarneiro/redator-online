@@ -1,6 +1,6 @@
 'use client';
 
-import { ClerkProvider, Show, SignInButton, UserButton } from "@clerk/nextjs";
+import { ClerkProvider, Show, SignInButton, UserButton, SignedIn } from "@clerk/nextjs";
 
 export const Navbar = () => (
   <nav className="navbar">
@@ -13,6 +13,9 @@ export const Navbar = () => (
         <a>Metodologia</a>
         <a>Temas</a>
         <a>Planos</a>
+        <Show when="signed-in">
+          <a href="/history">Meu Histórico</a>
+        </Show>
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
         <Show when="signed-out">

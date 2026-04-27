@@ -83,6 +83,12 @@ h1, h2, h3 {
   color: var(--text-light);
 }
 
+.nav-links a {
+  text-decoration: none;
+  color: var(--text-light);
+  transition: color 0.2s ease;
+}
+
 .nav-links a:hover { color: var(--primary); cursor: pointer; }
 
 /* Hero Section */
@@ -397,6 +403,10 @@ h1, h2, h3 {
   display: none;
 }
 
+.no-print {
+  display: block;
+}
+
 @media print {
   @page {
     margin: 2cm;
@@ -408,6 +418,11 @@ h1, h2, h3 {
 
   .results-section, .results-section * {
     visibility: visible;
+  }
+
+  .no-print, .no-print * {
+    display: none !important;
+    visibility: hidden !important;
   }
 
   .results-section {
@@ -591,6 +606,40 @@ h1, h2, h3 {
   height: 100%;
   background: var(--primary);
   transition: width 0.5s ease;
+}
+
+/* History Page */
+.history-card {
+  background: white;
+  border-radius: 20px;
+  border: 1px solid #f1f5f9;
+  padding: 1.5rem 2rem;
+  transition: all 0.2s ease;
+  box-shadow: var(--shadow-sm);
+  display: block;
+}
+
+.history-card:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-md);
+  border-color: var(--primary-light);
+}
+
+.history-card-content {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.history-icon-box {
+  width: 56px;
+  height: 56px;
+  background: #f8fafc;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
 
 @media (max-width: 1024px) {

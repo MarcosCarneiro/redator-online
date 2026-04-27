@@ -1,3 +1,5 @@
+'use client';
+
 import { CheckCircle2, Lightbulb, FileText, Download } from 'lucide-react';
 
 interface Competency {
@@ -17,7 +19,7 @@ interface EvaluationResultsProps {
   evaluation: Evaluation;
   theme: string;
   essay: string;
-  resultsRef: React.RefObject<HTMLDivElement | null>;
+  resultsRef?: React.RefObject<HTMLDivElement | null>;
 }
 
 export const EvaluationResults = ({ evaluation, theme, essay, resultsRef }: EvaluationResultsProps) => {
@@ -28,7 +30,7 @@ export const EvaluationResults = ({ evaluation, theme, essay, resultsRef }: Eval
   };
 
   return (
-    <div className="results-section" ref={resultsRef}>
+    <div className="results-section" ref={resultsRef || null}>
       <div className="print-only">
         <h1 style={{ color: 'var(--primary)', marginBottom: '1rem' }}>Relatório de Avaliação - Redator Online</h1>
         <div style={{ marginBottom: '2rem', padding: '1.5rem', background: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
