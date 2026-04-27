@@ -23,6 +23,7 @@ export const EssayEditor = ({
       <div className="input-group">
         <label className="input-label">Tema da Redação</label>
         <input
+          id="theme-input"
           type="text"
           className="theme-input"
           placeholder="Ex: Os desafios da educação inclusiva no Brasil..."
@@ -92,7 +93,7 @@ export const EssayEditor = ({
         <button
           className="btn-primary"
           onClick={onSubmit}
-          disabled={loading || transcribing || !essay.trim() || !theme.trim()}
+          disabled={loading || transcribing}
         >
           {loading ? 'Analisando...' : 'Finalizar e Corrigir'}
         </button>

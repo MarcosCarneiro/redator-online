@@ -1,8 +1,11 @@
 import { OpenAI } from 'openai';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
+import { currentUser } from '@clerk/nextjs/server';
+import { db } from '@/db';
+import { users, essays } from '@/db/schema';
+import { eq, and, isNull, count } from 'drizzle-orm';
 
-// Schema para validação da resposta da IA
 const EvaluationSchema = z.object({
   totalScore: z.number().min(0).max(1000),
   competencies: z.array(z.object({
@@ -17,28 +20,6 @@ const EvaluationSchema = z.object({
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
-
-// Simples Rate Limiting em memória (Para produção real, use Redis/Upstash)
-const rateLimitMap = new Map<string, { count: number; lastReset: number }>();
-const RATE_LIMIT_COUNT = 10;
-const RATE_LIMIT_WINDOW = 60 * 60 * 1000; // 1 hora
-
-function isRateLimited(ip: string): boolean {
-  const now = Date.now();
-  const record = rateLimitMap.get(ip);
-
-  if (!record || (now - record.lastReset) > RATE_LIMIT_WINDOW) {
-    rateLimitMap.set(ip, { count: 1, lastReset: now });
-    return false;
-  }
-
-  if (record.count >= RATE_LIMIT_COUNT) {
-    return true;
-  }
-
-  record.count++;
-  return false;
-}
 
 const SYSTEM_PROMPT = `
 Você é um corretor oficial e experiente de redações do ENEM. Sua tarefa é avaliar a redação de forma justa, técnica e encorajadora, seguindo RIGOROSAMENTE o Manual do Corretor do INEP.
@@ -70,14 +51,30 @@ Formato de Saída (JSON Estrito):
 `;
 
 export async function POST(req: Request) {
+  let rawContent = '';
   try {
-    const ip = req.headers.get('x-forwarded-for') || 'anonymous';
+    const user = await currentUser();
+    const ip = req.headers.get('x-forwarded-for') || '127.0.0.1';
     
-    if (isRateLimited(ip)) {
-      return NextResponse.json(
-        { error: 'Limite de correções atingido. Tente novamente em uma hora.' },
-        { status: 429 }
-      );
+    if (!user) {
+      const guestEssays = await db
+        .select({ value: count() })
+        .from(essays)
+        .where(
+          and(
+            eq(essays.userIp, ip),
+            isNull(essays.userId)
+          )
+        );
+
+      const usageCount = guestEssays[0]?.value || 0;
+      
+      if (usageCount >= 3) {
+        return NextResponse.json(
+          { error: 'Você atingiu o limite de 3 avaliações gratuitas. Crie uma conta ou faça login para continuar avaliando suas redações e salvar seu histórico!' },
+          { status: 403 }
+        );
+      }
     }
 
     const { text, theme } = await req.json();
@@ -113,17 +110,53 @@ export async function POST(req: Request) {
       temperature: 0.3,
     });
 
-    const rawContent = response.choices[0].message.content;
+    rawContent = response.choices[0].message.content || '';
     const parsedData = JSON.parse(rawContent || '{}');
-    
-    // Validação Robusta com Zod
     const validatedData = EvaluationSchema.parse(parsedData);
+
+    try {
+      if (user) {
+        let dbUser = await db.query.users.findFirst({
+          where: eq(users.externalId, user.id),
+        });
+
+        if (!dbUser) {
+          const [newUser] = await db.insert(users).values({
+            externalId: user.id,
+            email: user.emailAddresses[0].emailAddress,
+            planStatus: 'free',
+          }).returning();
+          dbUser = newUser;
+        }
+
+        await db.insert(essays).values({
+          userId: dbUser.id,
+          userIp: ip,
+          theme,
+          content: text,
+          totalScore: validatedData.totalScore,
+          evaluation: validatedData,
+        });
+      } else {
+        await db.insert(essays).values({
+          userIp: ip,
+          theme,
+          content: text,
+          totalScore: validatedData.totalScore,
+          evaluation: validatedData,
+        });
+      }
+    } catch (dbError) {
+      console.error('Database Persistence Error:', dbError);
+    }
 
     return NextResponse.json(validatedData);
   } catch (error: any) {
     console.error('API Error:', error);
     
     if (error instanceof z.ZodError) {
+      console.error('Zod Validation Error Details:', JSON.stringify(error.issues, null, 2));
+      console.error('Raw Content that failed validation:', rawContent);
       return NextResponse.json(
         { error: 'A IA gerou uma resposta inválida. Por favor, tente novamente.' },
         { status: 502 }

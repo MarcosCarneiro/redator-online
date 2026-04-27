@@ -97,7 +97,17 @@ export default function Home() {
   };
 
   const handleSubmit = async () => {
-    if (!essay.trim() || !theme.trim()) return;
+    if (!theme.trim()) {
+      setError('Por favor, informe o tema da redação antes de avaliar.');
+      document.getElementById('theme-input')?.focus();
+      return;
+    }
+
+    if (!essay.trim() || essay.trim().length < 150) {
+      setError('Sua redação precisa ter pelo menos 150 caracteres para uma avaliação precisa.');
+      return;
+    }
+
     setLoading(true);
     setError(null);
     setEvaluation(null);
