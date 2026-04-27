@@ -20,7 +20,7 @@ const openai = new OpenAI({
 
 // Simples Rate Limiting em memória (Para produção real, use Redis/Upstash)
 const rateLimitMap = new Map<string, { count: number; lastReset: number }>();
-const RATE_LIMIT_COUNT = 3;
+const RATE_LIMIT_COUNT = 10;
 const RATE_LIMIT_WINDOW = 60 * 60 * 1000; // 1 hora
 
 function isRateLimited(ip: string): boolean {
