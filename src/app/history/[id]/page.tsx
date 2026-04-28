@@ -1,7 +1,8 @@
-import { auth } from '@clerk/nextjs/server';
+import { auth } from '@/lib/auth';
+import { headers } from 'next/headers';
 import { db } from '@/db';
 import { essays } from '@/db/schema';
-import { eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import { Navbar } from '@/components/Navbar';
 import { Footer } from '@/components/Footer';
 import { EvaluationResults } from '@/components/EvaluationResults';
@@ -15,15 +16,20 @@ interface Props {
 }
 
 export default async function EssayDetailPage({ params }: Props) {
-  const { userId: clerkId } = await auth();
+  const session = await auth.api.getSession({
+    headers: await headers()
+  });
   const { id } = await params;
 
-  if (!clerkId) {
+  if (!session) {
     redirect('/');
   }
 
   const essayData = await db.query.essays.findFirst({
-    where: eq(essays.id, id),
+    where: and(
+      eq(essays.id, id),
+      eq(essays.userId, session.user.id)
+    ),
   });
 
   if (!essayData) {

@@ -1,9 +1,9 @@
 import { OpenAI } from 'openai';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { currentUser } from '@clerk/nextjs/server';
+import { auth } from '@/lib/auth';
 import { db } from '@/db';
-import { users, essays } from '@/db/schema';
+import { user as userTable, essays } from '@/db/schema';
 import { eq, and, isNull, count } from 'drizzle-orm';
 
 const EvaluationSchema = z.object({
@@ -25,9 +25,8 @@ const SYSTEM_PROMPT = `
 Você é um corretor oficial e experiente de redações do ENEM. Sua tarefa é avaliar a redação de forma justa, técnica e encorajadora, seguindo RIGOROSAMENTE o Manual do Corretor do INEP.
 
 REGRAS DE PONTUAÇÃO (OBRIGATÓRIO):
-- Cada competência deve receber uma nota que seja MULTIPLO DE 40.
-- Valores permitidos por competência: 0, 40, 80, 120, 160 ou 200.
-- NUNCA use valores como 20, 60, 100, 140 ou 180.
+- Cada competência deve receber uma nota que seja MULTIPLO DE 40 (0, 40, 80, 120, 160 ou 200).
+- O "totalScore" DEVE SER EXATAMENTE a soma das 5 competências (mínimo 0, máximo 1000).
 
 Instruções de Calibração:
 - Competência 1: Admite até dois desvios gramaticais para nota 200.
@@ -53,7 +52,8 @@ Formato de Saída (JSON Estrito):
 export async function POST(req: Request) {
   let rawContent = '';
   try {
-    const user = await currentUser();
+    const session = await auth.api.getSession({ headers: req.headers });
+    const user = session?.user;
     const ip = req.headers.get('x-forwarded-for') || '127.0.0.1';
     
     if (!user) {
@@ -112,25 +112,21 @@ export async function POST(req: Request) {
 
     rawContent = response.choices[0].message.content || '';
     const parsedData = JSON.parse(rawContent || '{}');
+    
+    // Failsafe: Manual recalculation of total score to prevent AI hallucinations
+    if (parsedData.competencies && Array.isArray(parsedData.competencies)) {
+      const realTotal = parsedData.competencies.reduce((acc: number, comp: any) => acc + (Number(comp.score) || 0), 0);
+      parsedData.totalScore = realTotal;
+    }
+
     const validatedData = EvaluationSchema.parse(parsedData);
 
     try {
       if (user) {
-        let dbUser = await db.query.users.findFirst({
-          where: eq(users.externalId, user.id),
-        });
-
-        if (!dbUser) {
-          const [newUser] = await db.insert(users).values({
-            externalId: user.id,
-            email: user.emailAddresses[0].emailAddress,
-            planStatus: 'free',
-          }).returning();
-          dbUser = newUser;
-        }
-
+        // Better-Auth manages users automatically, but we might want to ensure custom fields are handled
+        // For now, let's just insert the essay linked to the user.id
         await db.insert(essays).values({
-          userId: dbUser.id,
+          userId: user.id,
           userIp: ip,
           theme,
           content: text,

@@ -1,6 +1,7 @@
-import { auth } from '@clerk/nextjs/server';
+import { auth } from '@/lib/auth';
+import { headers } from 'next/headers';
 import { db } from '@/db';
-import { users, essays } from '@/db/schema';
+import { essays } from '@/db/schema';
 import { eq, desc } from 'drizzle-orm';
 import { Navbar } from '@/components/Navbar';
 import { Footer } from '@/components/Footer';
@@ -8,9 +9,11 @@ import { FileText, Calendar, ChevronRight, Trophy } from 'lucide-react';
 import Link from 'next/link';
 
 export default async function HistoryPage() {
-  const { userId: clerkId } = await auth();
+  const session = await auth.api.getSession({
+    headers: await headers()
+  });
 
-  if (!clerkId) {
+  if (!session) {
     return (
       <div style={{ textAlign: 'center', padding: '10rem 2rem' }}>
         <h1>Acesso negado</h1>
@@ -22,18 +25,11 @@ export default async function HistoryPage() {
     );
   }
 
-  // Busca o usuário interno
-  const dbUser = await db.query.users.findFirst({
-    where: eq(users.externalId, clerkId),
+  // Busca as redações diretamente pelo ID do usuário do session
+  const userEssays = await db.query.essays.findMany({
+    where: eq(essays.userId, session.user.id),
+    orderBy: [desc(essays.createdAt)],
   });
-
-  // Busca as redações (ou lista vazia se o usuário não tiver registro no DB ainda)
-  const userEssays = dbUser 
-    ? await db.query.essays.findMany({
-        where: eq(essays.userId, dbUser.id),
-        orderBy: [desc(essays.createdAt)],
-      })
-    : [];
 
   return (
     <>
