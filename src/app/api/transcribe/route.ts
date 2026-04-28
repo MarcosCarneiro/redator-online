@@ -1,5 +1,9 @@
 import { OpenAI } from 'openai';
 import { NextResponse } from 'next/server';
+import { auth } from '@/lib/auth';
+import { db } from '@/db';
+import { essays } from '@/db/schema';
+import { eq, and, isNull, count } from 'drizzle-orm';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -7,6 +11,32 @@ const openai = new OpenAI({
 
 export async function POST(req: Request) {
   try {
+    const session = await auth.api.getSession({ headers: req.headers });
+    const user = session?.user;
+    const ip = req.headers.get('x-forwarded-for') || '127.0.0.1';
+
+    // Protect against anonymous abuse (Rate limiting for guests)
+    if (!user) {
+      const guestUsage = await db
+        .select({ value: count() })
+        .from(essays)
+        .where(
+          and(
+            eq(essays.userIp, ip),
+            isNull(essays.userId)
+          )
+        );
+
+      const usageCount = guestUsage[0]?.value || 0;
+      
+      if (usageCount >= 3) {
+        return NextResponse.json(
+          { error: 'Você atingiu o limite de transcrições gratuitas. Faça login para continuar.' },
+          { status: 403 }
+        );
+      }
+    }
+
     const { image } = await req.json();
 
     if (!image) {
@@ -31,7 +61,7 @@ export async function POST(req: Request) {
             {
               type: 'image_url',
               image_url: {
-                url: image, // A imagem deve vir como data:image/jpeg;base64,...
+                url: image,
               },
             },
           ],
@@ -46,7 +76,7 @@ export async function POST(req: Request) {
   } catch (error: any) {
     console.error('Transcription Error:', error);
     return NextResponse.json(
-      { error: 'Ocorreu um erro ao transcrever a imagem. Certifique-se de que a imagem está clara.' },
+      { error: 'Ocorreu um erro ao transcrever a imagem.' },
       { status: 500 }
     );
   }
