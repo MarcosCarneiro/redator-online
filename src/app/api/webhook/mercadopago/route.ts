@@ -2,22 +2,61 @@ import { NextResponse } from 'next/server';
 import { db } from '@/db';
 import { user as userTable, plans as plansTable } from '@/db/schema';
 import { eq } from 'drizzle-orm';
+import crypto from 'crypto';
+
+function verifySignature(req: Request, body: any, dataId: string): boolean {
+    const secret = process.env.MERCADO_PAGO_WEBHOOK_SECRET;
+    if (!secret) return true; // Skip validation if secret is not set (not recommended for production)
+
+    const xSignature = req.headers.get('x-signature');
+    const xRequestId = req.headers.get('x-request-id');
+
+    if (!xSignature || !xRequestId || !dataId) return false;
+
+    // 1. Extract ts and v1 from x-signature header
+    const parts = xSignature.split(',');
+    let ts = '';
+    let hash = '';
+
+    parts.forEach(part => {
+        const [key, value] = part.split('=');
+        if (key === 'ts') ts = value;
+        if (key === 'v1') hash = value;
+    });
+
+    if (!ts || !hash) return false;
+
+    // 2. Build the manifest string (dataId must be lowercase)
+    const manifest = `id:${String(dataId).toLowerCase()};request-id:${xRequestId};ts:${ts};`;
+
+    // 3. Generate HMAC-SHA256
+    const hmac = crypto.createHmac('sha256', secret);
+    hmac.update(manifest);
+    const sha = hmac.digest('hex');
+
+    return sha === hash;
+}
 
 export async function POST(req: Request) {
     try {
         const body = await req.json();
-        console.log('Mercado Pago Webhook Received:', JSON.stringify(body, null, 2));
-
-        const { type, action, data } = body;
+        const { type, data } = body;
         const resourceId = data?.id || body.id;
 
         if (!resourceId) {
             return NextResponse.json({ received: true });
         }
 
+        // Security: Verify the request is actually from Mercado Pago
+        if (!verifySignature(req, body, resourceId)) {
+            console.error('Mercado Pago Webhook: Invalid Signature');
+            return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
+        }
+
+        console.log('Mercado Pago Webhook Verified:', JSON.stringify(body, null, 2));
+
         // Logic for Subscriptions (PreApproval)
         if (type === 'subscription_preapproval' || type === 'preapproval') {
-            // Fetch the full subscription object from Mercado Pago
             const mpResponse = await fetch(`https://api.mercadopago.com/preapproval/${resourceId}`, {
                 headers: {
                     'Authorization': `Bearer ${process.env.MERCADO_PAGO_ACCESS_TOKEN}`,
@@ -30,40 +69,18 @@ export async function POST(req: Request) {
                 const status = subscription.status; // 'authorized', 'paused', 'cancelled'
                 const planId = subscription.preapproval_plan_id;
 
-                console.log(`Subscription Sync: User ${userId}, Status ${status}`);
-
                 if (userId && status === 'authorized') {
-                    // Find internal plan ID by matching MP Plan ID
                     const plan = await db.query.plans.findFirst({
                         where: eq(plansTable.mercadopagoPlanId, planId)
                     });
 
-                    // Update user status and credits
                     await db.update(userTable).set({
                         subscriptionStatus: 'active',
                         subscriptionId: subscription.id,
                         planId: plan?.id || null,
-                        subscriptionExpiresAt: new Date(Date.now() + 31 * 24 * 60 * 60 * 1000), // +31 days
-                        essaysUsed: 0, // Reset credits for the new month
+                        subscriptionExpiresAt: new Date(Date.now() + 31 * 24 * 60 * 60 * 1000),
+                        essaysUsed: 0,
                     }).where(eq(userTable.id, userId));
-                }
-            }
-        }
-
-        // Logic for Individual Payments (In case of non-subscription or manual sync)
-        if (type === 'payment') {
-             const mpResponse = await fetch(`https://api.mercadopago.com/v1/payments/${resourceId}`, {
-                headers: {
-                    'Authorization': `Bearer ${process.env.MERCADO_PAGO_ACCESS_TOKEN}`,
-                }
-            });
-            
-            if (mpResponse.ok) {
-                const payment = await mpResponse.json();
-                const userId = payment.external_reference;
-                if (userId && payment.status === 'approved') {
-                    // Similar logic can be applied here for simple payments
-                    console.log(`Payment Approved for user: ${userId}`);
                 }
             }
         }
@@ -71,8 +88,6 @@ export async function POST(req: Request) {
         return NextResponse.json({ received: true });
     } catch (error: any) {
         console.error('Webhook Error:', error);
-        // Always return 200 to Mercado Pago to stop retries, even if our internal logic fails
-        // but log the error for us.
         return NextResponse.json({ received: true, error: error.message });
     }
 }
