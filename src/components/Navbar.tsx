@@ -1,6 +1,6 @@
 'use client';
 
-import { ClerkProvider, Show, SignInButton, UserButton, SignedIn } from "@clerk/nextjs";
+import { Show, SignInButton, UserButton } from "@clerk/nextjs";
 
 export const Navbar = () => (
   <nav className="navbar">

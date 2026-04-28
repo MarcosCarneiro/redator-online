@@ -1,4 +1,5 @@
 import { Camera } from 'lucide-react';
+import { ThemeSelector } from './ThemeSelector';
 
 interface EssayEditorProps {
   theme: string;
@@ -21,7 +22,10 @@ export const EssayEditor = ({
   return (
     <div className="editor-container" id="editor">
       <div className="input-group">
-        <label className="input-label">Tema da Redação</label>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+          <label className="input-label" style={{ margin: 0 }}>Tema da Redação</label>
+          <ThemeSelector onSelect={setTheme} currentTheme={theme} />
+        </div>
         <input
           id="theme-input"
           type="text"
