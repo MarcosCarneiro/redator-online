@@ -1,11 +1,24 @@
 'use client';
 
 import { authClient } from "@/lib/auth-client";
-import { LogOut, User as UserIcon } from "lucide-react";
+import { LogOut, User as UserIcon, CreditCard } from "lucide-react";
 import Link from "next/link";
+import { useEffect, useState } from "react";
 
 export const Navbar = () => {
   const { data: session, isPending } = authClient.useSession();
+  const [usage, setUsage] = useState<{ essaysUsed: number; essayLimit: number; planName: string } | null>(null);
+
+  useEffect(() => {
+    if (session) {
+      fetch('/api/user/usage')
+        .then(res => res.json())
+        .then(data => {
+          if (!data.error) setUsage(data);
+        })
+        .catch(console.error);
+    }
+  }, [session]);
 
   const handleSignIn = async () => {
     await authClient.signIn.social({
@@ -34,6 +47,13 @@ export const Navbar = () => {
           )}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          {session && usage && (
+            <div className="usage-badge">
+              <CreditCard size={14} />
+              <span>{usage.essaysUsed}/{usage.essayLimit} <small>redações</small></span>
+            </div>
+          )}
+
           {!session && !isPending && (
             <button 
               className="btn-secondary" 
@@ -79,6 +99,21 @@ export const Navbar = () => {
           )}
         </div>
       </div>
+      <style jsx>{`
+        .usage-badge {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          background: #f0f9ff;
+          color: var(--primary);
+          padding: 0.4rem 0.8rem;
+          border-radius: 100px;
+          font-size: 0.8rem;
+          font-weight: 700;
+          border: 1px solid #bae6fd;
+        }
+        .usage-badge small { font-weight: 400; opacity: 0.8; }
+      `}</style>
     </nav>
   );
 };

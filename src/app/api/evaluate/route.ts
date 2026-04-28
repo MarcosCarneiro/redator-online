@@ -61,6 +61,8 @@ export async function POST(req: Request) {
     const user = session?.user;
     const ip = req.headers.get('x-forwarded-for') || '127.0.0.1';
     
+    let dbUser: any = null;
+
     if (!user) {
       const guestEssays = await db
         .select({ value: count() })
@@ -80,6 +82,37 @@ export async function POST(req: Request) {
           { status: 403 }
         );
       }
+    } else {
+        // Logged in user: Check plan and limits
+        dbUser = await db.query.user.findFirst({
+            where: eq(userTable.id, user.id),
+            with: {
+                plan: true
+            }
+        });
+
+        if (!dbUser) {
+            return NextResponse.json({ error: 'Usuário não encontrado' }, { status: 404 });
+        }
+
+        // Check expiration
+        if (dbUser.subscriptionStatus === 'active' && dbUser.subscriptionExpiresAt) {
+            const isExpired = new Date() > new Date(dbUser.subscriptionExpiresAt);
+            if (isExpired) {
+                // If expired, treat as free or block depending on policy
+                // For now, let's just let them know
+            }
+        }
+
+        const currentPlan = dbUser.plan || { id: 'free', name: 'Grátis', essayLimit: 3 };
+        const usedCount = dbUser.essaysUsed || 0;
+
+        if (usedCount >= currentPlan.essayLimit) {
+            return NextResponse.json(
+                { error: `Você atingiu o limite de ${currentPlan.essayLimit} redações do seu plano ${currentPlan.name}. Faça um upgrade para continuar!` },
+                { status: 403 }
+            );
+        }
     }
 
     const { text, theme } = await req.json();
@@ -128,6 +161,11 @@ export async function POST(req: Request) {
 
     try {
       if (user) {
+        // Increment essaysUsed
+        await db.update(userTable)
+          .set({ essaysUsed: (dbUser?.essaysUsed || 0) + 1 })
+          .where(eq(userTable.id, user.id));
+
         // Better-Auth manages users automatically, but we might want to ensure custom fields are handled
         // For now, let's just insert the essay linked to the user.id
         await db.insert(essays).values({

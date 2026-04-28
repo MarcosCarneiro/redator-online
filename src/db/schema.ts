@@ -1,4 +1,14 @@
 import { pgTable, text, timestamp, boolean, uuid, integer, jsonb } from "drizzle-orm/pg-core";
+import { relations } from 'drizzle-orm';
+
+export const plans = pgTable("plans", {
+    id: text("id").primaryKey(), // e.g., 'pro_10', 'pro_100'
+    name: text("name").notNull(),
+    price: integer("price").notNull(), // in cents
+    essayLimit: integer("essay_limit").notNull(),
+    mercadopagoPlanId: text("mercadopago_plan_id"), // ID from MP Dashboard
+    description: text("description"),
+});
 
 export const user = pgTable("user", {
 	id: text("id").primaryKey(),
@@ -8,11 +18,46 @@ export const user = pgTable("user", {
 	image: text("image"),
 	createdAt: timestamp("createdAt").notNull(),
 	updatedAt: timestamp("updatedAt").notNull(),
-    // Custom fields from original schema
-    planStatus: text('plan_status').default('free'),
-    customerId: text('customer_id'),
+    // Subscription fields
+    planId: text('plan_id').references(() => plans.id),
+    essaysUsed: integer('essays_used').default(0),
+    subscriptionStatus: text('subscription_status').default('none'), // none, active, past_due, canceled
     subscriptionId: text('subscription_id'),
+    subscriptionExpiresAt: timestamp('subscription_expires_at'),
+    // Legacy/Generic fields
+    customerId: text('customer_id'),
+    subscriptionReference: text('subscription_reference'),
 });
+
+export const essays = pgTable('essays', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: text('user_id').references(() => user.id),
+  userIp: text('user_ip'),
+  theme: text('theme').notNull(),
+  content: text('content').notNull(),
+  totalScore: integer('total_score'),
+  evaluation: jsonb('evaluation'),
+  createdAt: timestamp('created_at').defaultNow(),
+});
+
+export const userRelations = relations(user, ({ one, many }) => ({
+    plan: one(plans, {
+        fields: [user.planId],
+        references: [plans.id],
+    }),
+    essays: many(essays),
+}));
+
+export const plansRelations = relations(plans, ({ many }) => ({
+    users: many(user),
+}));
+
+export const essaysRelations = relations(essays, ({ one }) => ({
+    user: one(user, {
+        fields: [essays.userId],
+        references: [user.id],
+    }),
+}));
 
 export const session = pgTable("session", {
 	id: text("id").primaryKey(),
@@ -48,15 +93,4 @@ export const verification = pgTable("verification", {
 	expiresAt: timestamp("expiresAt").notNull(),
 	createdAt: timestamp("createdAt"),
 	updatedAt: timestamp("updatedAt"),
-});
-
-export const essays = pgTable('essays', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  userId: text('user_id').references(() => user.id),
-  userIp: text('user_ip'),
-  theme: text('theme').notNull(),
-  content: text('content').notNull(),
-  totalScore: integer('total_score'),
-  evaluation: jsonb('evaluation'),
-  createdAt: timestamp('created_at').defaultNow(),
 });

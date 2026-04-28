@@ -12,6 +12,7 @@ import { BentoGrid } from '@/components/BentoGrid';
 import { EssayEditor } from '@/components/EssayEditor';
 import { EvaluationResults } from '@/components/EvaluationResults';
 import { AnalysisLoading } from '@/components/AnalysisLoading';
+import { Pricing } from '@/components/Pricing';
 
 // Types
 export interface Competency {
@@ -144,6 +145,7 @@ export default function Home() {
       <div className="container">
         <Hero onStartClick={() => document.getElementById('editor')?.scrollIntoView({ behavior: 'smooth' })} />
         <BentoGrid />
+        <Pricing />
 
         <main>
           <EssayEditor 
