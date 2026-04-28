@@ -5,8 +5,9 @@ import { essays } from '@/db/schema';
 import { eq, desc } from 'drizzle-orm';
 import { Navbar } from '@/components/Navbar';
 import { Footer } from '@/components/Footer';
-import { FileText, Calendar, ChevronRight, Trophy } from 'lucide-react';
+import { FileText, Calendar, ChevronRight, Trophy, Sparkles } from 'lucide-react';
 import Link from 'next/link';
+import { syncUserSubscription } from '@/lib/sync-subscription';
 
 export default async function HistoryPage() {
   const session = await auth.api.getSession({
@@ -24,6 +25,10 @@ export default async function HistoryPage() {
       </div>
     );
   }
+
+  // Actively sync subscription status with Mercado Pago when visiting the history page
+  // This acts as a reliable fallback if webhooks are delayed or fail in sandbox mode
+  await syncUserSubscription(session.user.id);
 
   // Busca as redações diretamente pelo ID do usuário do session
   const userEssays = await db.query.essays.findMany({
