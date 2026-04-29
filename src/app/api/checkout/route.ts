@@ -32,7 +32,7 @@ export async function POST(req: Request) {
                 reason: `Assinatura ${plan.name}`,
                 external_reference: session.user.id,
                 payer_email: session.user.email,
-                back_url: `${process.env.NEXT_PUBLIC_BETTER_AUTH_URL}/history`,
+                back_url: `${process.env.NEXT_PUBLIC_BETTER_AUTH_URL}/checkout/success`,
                 status: 'pending',
             }),
         });
