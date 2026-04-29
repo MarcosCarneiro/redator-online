@@ -99,6 +99,8 @@ export const webhookLogs = pgTable("webhook_logs", {
     id: uuid("id").primaryKey().defaultRandom(),
     provider: text("provider").notNull(), // 'mercadopago'
     type: text("type"), // 'payment', 'subscription_preapproval', etc.
+    source: text("source").default('webhook'), // 'webhook', 'sync'
+    userId: text("user_id"), // The user associated with this event
     resourceId: text("resource_id"),
     payload: jsonb("payload").notNull(),
     processedAt: timestamp("processed_at").defaultNow(),

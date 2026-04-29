@@ -49,6 +49,7 @@ export async function POST(req: Request) {
         const [insertedLog] = await db.insert(webhookLogs).values({
             provider: 'mercadopago',
             type: type || 'unknown',
+            source: 'webhook',
             resourceId: resourceId ? String(resourceId) : null,
             payload: body,
             status: 'received',
@@ -90,8 +91,11 @@ export async function POST(req: Request) {
                 };
                 console.info('Mercado Pago Webhook - Subscription Payload:', JSON.stringify(safeSubscriptionLog));
 
-                // Update log with the actual fetched subscription data
-                await db.update(webhookLogs).set({ payload: { ...body, subscription_detail: subscription } }).where(eq(webhookLogs.id, logId));
+                // Update log with the actual fetched subscription data and userId
+                await db.update(webhookLogs).set({ 
+                    payload: { ...body, subscription_detail: subscription },
+                    userId: subscription.external_reference || null
+                }).where(eq(webhookLogs.id, logId));
 
                 const userId = subscription.external_reference;
                 const status = subscription.status; // 'authorized', 'paused', 'cancelled'
@@ -138,8 +142,11 @@ export async function POST(req: Request) {
                 };
                 console.info('Mercado Pago Webhook - Payment Payload:', JSON.stringify(safePaymentLog));
 
-                // Update log with the actual fetched payment data
-                await db.update(webhookLogs).set({ payload: { ...body, payment_detail: payment } }).where(eq(webhookLogs.id, logId));
+                // Update log with the actual fetched payment data and userId
+                await db.update(webhookLogs).set({ 
+                    payload: { ...body, payment_detail: payment },
+                    userId: payment.external_reference || null
+                }).where(eq(webhookLogs.id, logId));
 
                 const userId = payment.external_reference;
                 

@@ -1,5 +1,5 @@
 import { db } from '@/db';
-import { user as userTable, plans as plansTable } from '@/db/schema';
+import { user as userTable, plans as plansTable, webhookLogs } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 
 export async function syncUserSubscription(userId: string) {
@@ -24,6 +24,17 @@ export async function syncUserSubscription(userId: string) {
             const activeSubscription = data.results.sort((a: any, b: any) => 
                 new Date(b.last_modified).getTime() - new Date(a.last_modified).getTime()
             )[0];
+
+            // Log the sync event
+            await db.insert(webhookLogs).values({
+                provider: 'mercadopago',
+                type: 'subscription_preapproval',
+                source: 'sync',
+                userId: userId,
+                resourceId: activeSubscription.id,
+                payload: activeSubscription,
+                status: 'processed'
+            });
 
             const planId = activeSubscription.preapproval_plan_id;
 
