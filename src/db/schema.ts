@@ -94,3 +94,14 @@ export const verification = pgTable("verification", {
 	createdAt: timestamp("createdAt"),
 	updatedAt: timestamp("updatedAt"),
 });
+
+export const webhookLogs = pgTable("webhook_logs", {
+    id: uuid("id").primaryKey().defaultRandom(),
+    provider: text("provider").notNull(), // 'mercadopago'
+    type: text("type"), // 'payment', 'subscription_preapproval', etc.
+    resourceId: text("resource_id"),
+    payload: jsonb("payload").notNull(),
+    processedAt: timestamp("processed_at").defaultNow(),
+    status: text("status").default('received'), // received, processed, error
+    errorMessage: text("error_message"),
+});

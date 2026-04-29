@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/db';
-import { user as userTable, plans as plansTable } from '@/db/schema';
+import { user as userTable, plans as plansTable, webhookLogs } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import crypto from 'crypto';
 
@@ -38,10 +38,22 @@ function verifySignature(req: Request, body: any, dataId: string): boolean {
 }
 
 export async function POST(req: Request) {
+    let logId: string | undefined;
+    const body = await req.json();
+
     try {
-        const body = await req.json();
         const { type, data } = body;
         const resourceId = data?.id || body.id;
+
+        // Initial Log Entry
+        const [insertedLog] = await db.insert(webhookLogs).values({
+            provider: 'mercadopago',
+            type: type || 'unknown',
+            resourceId: resourceId ? String(resourceId) : null,
+            payload: body,
+            status: 'received',
+        }).returning({ id: webhookLogs.id });
+        logId = insertedLog.id;
 
         if (!resourceId) {
             return NextResponse.json({ received: true });
@@ -50,6 +62,10 @@ export async function POST(req: Request) {
         // Security: Verify the request is actually from Mercado Pago
         if (!verifySignature(req, body, resourceId)) {
             console.error('Mercado Pago Webhook: Invalid Signature');
+            await db.update(webhookLogs).set({ 
+                status: 'error', 
+                errorMessage: 'Invalid signature' 
+            }).where(eq(webhookLogs.id, logId));
             return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
         }
 
@@ -72,7 +88,10 @@ export async function POST(req: Request) {
                     payer: subscription.payer ? { ...subscription.payer, email: '***@***.***', identification: '***' } : undefined,
                     card_id: subscription.card_id ? '***' : undefined,
                 };
-                console.log('Mercado Pago Webhook - Subscription Payload:', JSON.stringify(safeSubscriptionLog, null, 2));
+                console.info('Mercado Pago Webhook - Subscription Payload:', JSON.stringify(safeSubscriptionLog));
+
+                // Update log with the actual fetched subscription data
+                await db.update(webhookLogs).set({ payload: { ...body, subscription_detail: subscription } }).where(eq(webhookLogs.id, logId));
 
                 const userId = subscription.external_reference;
                 const status = subscription.status; // 'authorized', 'paused', 'cancelled'
@@ -119,6 +138,9 @@ export async function POST(req: Request) {
                 };
                 console.info('Mercado Pago Webhook - Payment Payload:', JSON.stringify(safePaymentLog));
 
+                // Update log with the actual fetched payment data
+                await db.update(webhookLogs).set({ payload: { ...body, payment_detail: payment } }).where(eq(webhookLogs.id, logId));
+
                 const userId = payment.external_reference;
                 
                 if (userId && payment.status === 'approved') {
@@ -132,9 +154,20 @@ export async function POST(req: Request) {
             }
         }
 
+        // Mark as processed
+        if (logId) {
+            await db.update(webhookLogs).set({ status: 'processed' }).where(eq(webhookLogs.id, logId));
+        }
+
         return NextResponse.json({ received: true });
     } catch (error: any) {
         console.error('Webhook Error:', error);
+        if (logId) {
+            await db.update(webhookLogs).set({ 
+                status: 'error', 
+                errorMessage: error.message 
+            }).where(eq(webhookLogs.id, logId));
+        }
         return NextResponse.json({ received: true, error: error.message });
     }
 }
