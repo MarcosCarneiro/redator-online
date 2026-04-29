@@ -44,7 +44,7 @@ export async function POST(req: Request) {
             ...data,
             payer_email: data.payer_email ? '***@***.***' : undefined,
         };
-        console.log('Mercado Pago Preapproval Response Payload:', JSON.stringify(safeLogData, null, 2));
+        console.info('Mercado Pago Preapproval Response Payload:', JSON.stringify(safeLogData));
 
         if (!mpResponse.ok) {
             console.error('Mercado Pago API Error Details:', safeLogData);

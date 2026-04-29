@@ -117,7 +117,7 @@ export async function POST(req: Request) {
                     card: payment.card ? { ...payment.card, first_six_digits: '***', last_four_digits: '***', cardholder: { name: '***' } } : undefined,
                     transaction_details: payment.transaction_details ? { ...payment.transaction_details, bank_transfer_id: '***' } : undefined,
                 };
-                console.log('Mercado Pago Webhook - Payment Payload:', JSON.stringify(safePaymentLog, null, 2));
+                console.info('Mercado Pago Webhook - Payment Payload:', JSON.stringify(safePaymentLog));
 
                 const userId = payment.external_reference;
                 
