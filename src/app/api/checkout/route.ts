@@ -39,8 +39,15 @@ export async function POST(req: Request) {
 
         const data = await mpResponse.json();
 
+        // Safely log the payload to inspect why we get a 400, masking email if present
+        const safeLogData = {
+            ...data,
+            payer_email: data.payer_email ? '***@***.***' : undefined,
+        };
+        console.log('Mercado Pago Preapproval Response Payload:', JSON.stringify(safeLogData, null, 2));
+
         if (!mpResponse.ok) {
-            console.error('Mercado Pago API Error:', data);
+            console.error('Mercado Pago API Error Details:', safeLogData);
             
             // Fallback: If the API refuses to create a pending subscription without a card,
             // we construct the hosted checkout URL manually using the Plan ID.

@@ -65,6 +65,15 @@ export async function POST(req: Request) {
 
             if (mpResponse.ok) {
                 const subscription = await mpResponse.json();
+
+                const safeSubscriptionLog = {
+                    ...subscription,
+                    payer_email: subscription.payer_email ? '***@***.***' : undefined,
+                    payer: subscription.payer ? { ...subscription.payer, email: '***@***.***', identification: '***' } : undefined,
+                    card_id: subscription.card_id ? '***' : undefined,
+                };
+                console.log('Mercado Pago Webhook - Subscription Payload:', JSON.stringify(safeSubscriptionLog, null, 2));
+
                 const userId = subscription.external_reference;
                 const status = subscription.status; // 'authorized', 'paused', 'cancelled'
                 const planId = subscription.preapproval_plan_id;
@@ -101,6 +110,15 @@ export async function POST(req: Request) {
 
             if (mpResponse.ok) {
                 const payment = await mpResponse.json();
+
+                const safePaymentLog = {
+                    ...payment,
+                    payer: payment.payer ? { ...payment.payer, email: '***@***.***', identification: '***' } : undefined,
+                    card: payment.card ? { ...payment.card, first_six_digits: '***', last_four_digits: '***', cardholder: { name: '***' } } : undefined,
+                    transaction_details: payment.transaction_details ? { ...payment.transaction_details, bank_transfer_id: '***' } : undefined,
+                };
+                console.log('Mercado Pago Webhook - Payment Payload:', JSON.stringify(safePaymentLog, null, 2));
+
                 const userId = payment.external_reference;
                 
                 if (userId && payment.status === 'approved') {
