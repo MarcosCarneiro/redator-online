@@ -69,15 +69,44 @@ export async function POST(req: Request) {
                 const status = subscription.status; // 'authorized', 'paused', 'cancelled'
                 const planId = subscription.preapproval_plan_id;
 
-                if (userId && status === 'authorized') {
-                    const plan = await db.query.plans.findFirst({
-                        where: eq(plansTable.mercadopagoPlanId, planId)
-                    });
+                if (userId) {
+                    if (status === 'authorized') {
+                        const plan = await db.query.plans.findFirst({
+                            where: eq(plansTable.mercadopagoPlanId, planId)
+                        });
 
+                        await db.update(userTable).set({
+                            subscriptionStatus: 'active',
+                            subscriptionId: subscription.id,
+                            planId: plan?.id || null,
+                            subscriptionExpiresAt: new Date(Date.now() + 31 * 24 * 60 * 60 * 1000),
+                            essaysUsed: 0,
+                        }).where(eq(userTable.id, userId));
+                    } else if (status === 'cancelled' || status === 'paused') {
+                        await db.update(userTable).set({
+                            subscriptionStatus: status === 'cancelled' ? 'canceled' : 'past_due',
+                        }).where(eq(userTable.id, userId));
+                    }
+                }
+            }
+        }
+
+        // Logic for Payments (Recurring)
+        if (type === 'payment') {
+            const mpResponse = await fetch(`https://api.mercadopago.com/v1/payments/${resourceId}`, {
+                headers: {
+                    'Authorization': `Bearer ${process.env.MERCADO_PAGO_ACCESS_TOKEN}`,
+                }
+            });
+
+            if (mpResponse.ok) {
+                const payment = await mpResponse.json();
+                const userId = payment.external_reference;
+                
+                if (userId && payment.status === 'approved') {
+                    // Update user's quota and expiration for the new month
                     await db.update(userTable).set({
                         subscriptionStatus: 'active',
-                        subscriptionId: subscription.id,
-                        planId: plan?.id || null,
                         subscriptionExpiresAt: new Date(Date.now() + 31 * 24 * 60 * 60 * 1000),
                         essaysUsed: 0,
                     }).where(eq(userTable.id, userId));
