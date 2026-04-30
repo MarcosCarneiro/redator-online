@@ -1,6 +1,6 @@
 import { db } from '@/db';
 import { essays as essayTable } from '@/db/schema';
-import { eq, and, isNull, count } from 'drizzle-orm';
+import { eq, and, isNull, count, desc } from 'drizzle-orm';
 
 export const essayRepository = {
     async getGuestUsageCount(ip: string) {
@@ -14,6 +14,22 @@ export const essayRepository = {
                 )
             );
         return result[0]?.value || 0;
+    },
+
+    async getUserEssays(userId: string) {
+        return db.query.essays.findMany({
+            where: eq(essayTable.userId, userId),
+            orderBy: [desc(essayTable.createdAt)],
+        });
+    },
+
+    async getUserEssayById(id: string, userId: string) {
+        return db.query.essays.findFirst({
+            where: and(
+                eq(essayTable.id, id),
+                eq(essayTable.userId, userId)
+            ),
+        });
     },
 
     async create(data: {

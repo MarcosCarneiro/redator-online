@@ -1,8 +1,6 @@
 import { auth } from '@/lib/auth';
 import { headers } from 'next/headers';
-import { db } from '@/db';
-import { essays } from '@/db/schema';
-import { eq, desc } from 'drizzle-orm';
+import { essayRepository } from '@/db/repositories/essay.repository';
 import { Navbar } from '@/components/Navbar';
 import { Footer } from '@/components/Footer';
 import { FileText, Calendar, ChevronRight, Trophy, Sparkles } from 'lucide-react';
@@ -25,11 +23,8 @@ export default async function HistoryPage() {
     );
   }
 
-  // Busca as redações diretamente pelo ID do usuário do session
-  const userEssays = await db.query.essays.findMany({
-    where: eq(essays.userId, session.user.id),
-    orderBy: [desc(essays.createdAt)],
-  });
+  // Busca as redações através do repositório
+  const userEssays = await essayRepository.getUserEssays(session.user.id);
 
   return (
     <>

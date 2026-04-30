@@ -1,8 +1,6 @@
 import { auth } from '@/lib/auth';
 import { headers } from 'next/headers';
-import { db } from '@/db';
-import { essays } from '@/db/schema';
-import { eq, and } from 'drizzle-orm';
+import { essayRepository } from '@/db/repositories/essay.repository';
 import { Navbar } from '@/components/Navbar';
 import { Footer } from '@/components/Footer';
 import { EvaluationResults } from '@/components/EvaluationResults';
@@ -25,12 +23,7 @@ export default async function EssayDetailPage({ params }: Props) {
     redirect('/');
   }
 
-  const essayData = await db.query.essays.findFirst({
-    where: and(
-      eq(essays.id, id),
-      eq(essays.userId, session.user.id)
-    ),
-  });
+  const essayData = await essayRepository.getUserEssayById(id, session.user.id);
 
   if (!essayData) {
     notFound();
