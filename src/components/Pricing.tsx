@@ -44,7 +44,10 @@ export const Pricing = () => {
 
   const handleSubscription = async (planId: string) => {
     if (!session) {
-      alert('Por favor, faça login com o Google antes de assinar um plano.');
+      await authClient.signIn.social({
+        provider: "google",
+        callbackURL: "/planos",
+      });
       return;
     }
 
