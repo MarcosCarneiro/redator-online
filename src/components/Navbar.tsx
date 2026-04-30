@@ -39,9 +39,7 @@ export const Navbar = () => {
           Redator<span>Online</span>
         </Link>
         <div className="nav-links">
-          <Link href="/#metodologia">Metodologia</Link>
-          <Link href="/#temas">Temas</Link>
-          <Link href="/#planos">Planos</Link>
+          <Link href="/planos">Planos</Link>
           {session && (
             <Link href="/history">Meu Histórico</Link>
           )}

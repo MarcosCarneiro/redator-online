@@ -13,6 +13,7 @@ import { EssayEditor } from '@/components/EssayEditor';
 import { EvaluationResults } from '@/components/EvaluationResults';
 import { AnalysisLoading } from '@/components/AnalysisLoading';
 import { Pricing } from '@/components/Pricing';
+import { authClient } from '@/lib/auth-client';
 
 // Types
 export interface Competency {
@@ -29,6 +30,22 @@ export interface Evaluation {
 }
 
 export default function Home() {
+  const { data: session } = authClient.useSession();
+  const [usage, setUsage] = useState<{ planName: string } | null>(null);
+
+  useEffect(() => {
+    if (session) {
+      fetch('/api/user/usage')
+        .then(res => res.json())
+        .then(data => {
+          if (!data.error) setUsage(data);
+        })
+        .catch(console.error);
+    }
+  }, [session]);
+
+  const hasPaidPlan = usage && usage.planName !== 'Grátis';
+
   // State Management
   const [essay, setEssay] = useState('');
   const [theme, setTheme] = useState('');
@@ -145,7 +162,7 @@ export default function Home() {
       <div className="container">
         <Hero onStartClick={() => document.getElementById('editor')?.scrollIntoView({ behavior: 'smooth' })} />
         <BentoGrid />
-        <Pricing />
+        {!hasPaidPlan && <Pricing />}
 
         <main>
           <EssayEditor 
