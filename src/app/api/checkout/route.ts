@@ -3,6 +3,7 @@ import { auth } from '@/lib/auth';
 import { db } from '@/db';
 import { plans as plansTable } from '@/db/schema';
 import { eq } from 'drizzle-orm';
+import { stripe } from '@/lib/stripe';
 
 export async function POST(req: Request) {
     try {
@@ -16,51 +17,34 @@ export async function POST(req: Request) {
             where: eq(plansTable.id, planId)
         });
 
-        if (!plan || !plan.mercadopagoPlanId) {
-            return NextResponse.json({ error: 'Plano inválido ou não configurado no Mercado Pago' }, { status: 400 });
+        if (!plan || !plan.stripePriceId) {
+            return NextResponse.json({ error: 'Plano inválido ou não configurado no Stripe' }, { status: 400 });
         }
 
-        // Direct Fetch to Mercado Pago API to avoid SDK hidden fields
-        const mpResponse = await fetch('https://api.mercadopago.com/preapproval', {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${process.env.MERCADO_PAGO_ACCESS_TOKEN}`,
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                preapproval_plan_id: plan.mercadopagoPlanId,
-                reason: `Assinatura ${plan.name}`,
-                external_reference: session.user.id,
-                payer_email: session.user.email,
-                back_url: `${process.env.NEXT_PUBLIC_BETTER_AUTH_URL}/checkout/success`,
-                status: 'pending',
-            }),
+        const checkoutSession = await stripe.checkout.sessions.create({
+            mode: 'subscription',
+            payment_method_types: ['card'],
+            customer_email: session.user.email,
+            client_reference_id: session.user.id,
+            line_items: [
+                {
+                    price: plan.stripePriceId,
+                    quantity: 1,
+                },
+            ],
+            success_url: `${process.env.NEXT_PUBLIC_BETTER_AUTH_URL}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
+            cancel_url: `${process.env.NEXT_PUBLIC_BETTER_AUTH_URL}/#planos`,
+            metadata: {
+                userId: session.user.id,
+                planId: plan.id,
+            }
         });
 
-        const data = await mpResponse.json();
-
-        // Safely log the payload to inspect why we get a 400, masking email if present
-        const safeLogData = {
-            ...data,
-            payer_email: data.payer_email ? '***@***.***' : undefined,
-        };
-        console.info('Mercado Pago Preapproval Response Payload:', JSON.stringify(safeLogData));
-
-        if (!mpResponse.ok) {
-            console.error('Mercado Pago API Error Details:', safeLogData);
-            
-            // Fallback: If the API refuses to create a pending subscription without a card,
-            // we construct the hosted checkout URL manually using the Plan ID.
-            // This is the "Checkout Pro" way for Subscriptions.
-            const checkoutUrl = `https://www.mercadopago.com.br/subscriptions/checkout?preapproval_plan_id=${plan.mercadopagoPlanId}&external_reference=${session.user.id}`;
-            return NextResponse.json({ init_point: checkoutUrl });
+        if (!checkoutSession.url) {
+            throw new Error('Não foi possível criar a sessão de checkout no Stripe.');
         }
 
-        const initPoint = process.env.NODE_ENV === 'development' 
-            ? data.sandbox_init_point || data.init_point 
-            : data.init_point;
-
-        return NextResponse.json({ init_point: initPoint });
+        return NextResponse.json({ init_point: checkoutSession.url });
     } catch (error: any) {
         console.error('Checkout Error:', error);
         return NextResponse.json({ error: 'Erro ao processar o checkout.' }, { status: 500 });

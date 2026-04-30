@@ -6,7 +6,7 @@ export const plans = pgTable("plans", {
     name: text("name").notNull(),
     price: integer("price").notNull(), // in cents
     essayLimit: integer("essay_limit").notNull(),
-    mercadopagoPlanId: text("mercadopago_plan_id"), // ID from MP Dashboard
+    stripePriceId: text("stripe_price_id"), // ID from Stripe Dashboard
     description: text("description"),
 });
 
@@ -97,7 +97,7 @@ export const verification = pgTable("verification", {
 
 export const webhookLogs = pgTable("webhook_logs", {
     id: uuid("id").primaryKey().defaultRandom(),
-    provider: text("provider").notNull(), // 'mercadopago'
+    provider: text("provider").notNull(), // 'stripe'
     type: text("type"), // 'payment', 'subscription_preapproval', etc.
     source: text("source").default('webhook'), // 'webhook', 'sync'
     userId: text("user_id"), // The user associated with this event
@@ -107,3 +107,4 @@ export const webhookLogs = pgTable("webhook_logs", {
     status: text("status").default('received'), // received, processed, error
     errorMessage: text("error_message"),
 });
+

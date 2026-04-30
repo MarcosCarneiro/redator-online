@@ -66,7 +66,7 @@ Configured using `better-auth` with a Drizzle adapter. Supports Google login.
 
 ### API Routes (`src/app/api/`)
 - `evaluate/route.ts`: The core logic for essay evaluation. It validates the submission, checks user limits (3 free for guests, plan-based for users), calls OpenAI with a specialized ENEM prompt, and saves the results.
-- `webhook/mercadopago/route.ts`: Handles payment and subscription status updates from Mercado Pago. Includes signature verification and external reference mapping to user IDs.
+- `webhook/stripe/route.ts`: Handles payment and subscription status updates from Stripe. Includes signature verification and external reference mapping to user IDs.
 - `user/usage/route.ts`: Provides current essay usage and plan limits for the logged-in user.
 
 ### Components (`src/components/`)
@@ -88,3 +88,4 @@ Configured using `better-auth` with a Drizzle adapter. Supports Google login.
 - Maintain a clean, professional aesthetic suitable for an educational platform.
 - Ensure responsive design using Tailwind CSS.
 - Provide clear feedback to the user during long-running AI evaluations (see `AnalysisLoading.tsx`).
+

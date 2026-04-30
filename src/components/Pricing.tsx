@@ -115,7 +115,7 @@ export const Pricing = () => {
         </div>
         
         <p className="pricing-footer">
-          Pagamento seguro via <strong>Mercado Pago</strong>. Cancele quando quiser.
+          Pagamento seguro via <strong>Stripe</strong>. Cancele quando quiser.
         </p>
       </div>
 
