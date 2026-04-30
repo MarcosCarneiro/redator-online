@@ -22,13 +22,11 @@ export const Pricing = () => {
       .then(res => res.json())
       .then(data => {
         if (Array.isArray(data)) {
-          // Filter only the main plans and sort them: pro_10 first, then pro_100
-          const allowedPlans = ['pro_10', 'pro_100'];
-          const filtered = data
-            .filter(plan => allowedPlans.includes(plan.id))
-            .sort((a, b) => allowedPlans.indexOf(a.id) - allowedPlans.indexOf(b.id));
-          
-          setDbPlans(filtered);
+          // The API already filtered to only allowed plans, 
+          // we just ensure the exact order (pro_10 -> pro_100)
+          const order = ['pro_10', 'pro_100'];
+          const sorted = data.sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
+          setDbPlans(sorted);
         }
       })
       .catch(console.error)

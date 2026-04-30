@@ -1,11 +1,11 @@
 import { db } from '@/db';
 import { plans as plansTable } from '@/db/schema';
-import { eq } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 
 export const planRepository = {
-    async getAll() {
+    async getPublicPlans() {
         return db.query.plans.findMany({
-            where: (plans, { ne }) => ne(plans.id, 'free')
+            where: inArray(plansTable.id, ['pro_10', 'pro_100'])
         });
     },
 
