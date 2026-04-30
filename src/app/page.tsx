@@ -141,7 +141,7 @@ export default function Home() {
       });
       
       if (response.status === 429) {
-        throw new Error('Você atingiu o limite de 3 correções por hora. Descanse um pouco!');
+        throw new Error('Muitas requisições. Descanse um pouco e tente novamente mais tarde!');
       }
       
       const data = await response.json().catch(() => ({}));

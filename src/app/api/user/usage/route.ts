@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { userRepository } from '@/db/repositories/user.repository';
+import { planRepository } from '@/db/repositories/plan.repository';
 
 export async function GET(req: Request) {
     try {
@@ -15,9 +16,16 @@ export async function GET(req: Request) {
             return NextResponse.json({ error: 'User not found' }, { status: 404 });
         }
 
+        let essayLimit = dbUser.plan?.essayLimit;
+        
+        if (!essayLimit) {
+            const freePlan = await planRepository.getById('free');
+            essayLimit = freePlan?.essayLimit || 3;
+        }
+
         return NextResponse.json({
             essaysUsed: dbUser.essaysUsed || 0,
-            essayLimit: dbUser.plan?.essayLimit || 3,
+            essayLimit: essayLimit,
             planName: dbUser.plan?.name || 'Grátis'
         });
     } catch (error) {

@@ -68,6 +68,9 @@ export async function POST(req: Request) {
     
     let dbUser: any = null;
 
+    const freePlan = await planRepository.getById('free');
+    const FREE_TIER_LIMIT = freePlan?.essayLimit || 3;
+
     if (!user) {
       const usageCount = await essayRepository.getGuestUsageCount(ip);
       

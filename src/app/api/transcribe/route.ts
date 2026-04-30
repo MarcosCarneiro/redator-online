@@ -1,9 +1,8 @@
 import { OpenAI } from 'openai';
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
-import { db } from '@/db';
-import { essays } from '@/db/schema';
-import { eq, and, isNull, count } from 'drizzle-orm';
+import { essayRepository } from '@/db/repositories/essay.repository';
+import { planRepository } from '@/db/repositories/plan.repository';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -17,19 +16,11 @@ export async function POST(req: Request) {
 
     // Protect against anonymous abuse (Rate limiting for guests)
     if (!user) {
-      const guestUsage = await db
-        .select({ value: count() })
-        .from(essays)
-        .where(
-          and(
-            eq(essays.userIp, ip),
-            isNull(essays.userId)
-          )
-        );
-
-      const usageCount = guestUsage[0]?.value || 0;
+      const usageCount = await essayRepository.getGuestUsageCount(ip);
+      const freePlan = await planRepository.getById('free');
+      const FREE_TIER_LIMIT = freePlan?.essayLimit || 3;
       
-      if (usageCount >= 3) {
+      if (usageCount >= FREE_TIER_LIMIT) {
         return NextResponse.json(
           { error: 'Você atingiu o limite de transcrições gratuitas. Faça login para continuar.' },
           { status: 403 }
