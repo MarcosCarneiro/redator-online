@@ -1,46 +1,33 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Check, Sparkles, Rocket, Zap } from 'lucide-react';
 import { authClient } from '@/lib/auth-client';
 
-const plans = [
-  {
-    id: 'pro_10',
-    name: 'Plano Estudante',
-    price: '9,90',
-    limit: 10,
-    features: [
-      '10 correções por mês',
-      'Feedback detalhado por competência',
-      'Sugestões de melhoria (IA)',
-      'Histórico completo salvo',
-      'Suporte prioritário'
-    ],
-    icon: <Zap className="text-amber-500" size={24} />,
-    popular: false
-  },
-  {
-    id: 'pro_100',
-    name: 'Plano Intensivo',
-    price: '14,99',
-    limit: 100,
-    features: [
-      '100 correções por mês',
-      'Análise ultra-detalhada',
-      'Foco total na Nota 1000',
-      'Transcrição ilimitada de fotos',
-      'Dicas exclusivas de repertório',
-      'Suporte via WhatsApp'
-    ],
-    icon: <Rocket className="text-blue-500" size={24} />,
-    popular: true
-  }
-];
+interface Plan {
+  id: string;
+  name: string;
+  price: string;
+  essayLimit: number;
+}
 
 export const Pricing = () => {
   const { data: session } = authClient.useSession();
   const [loading, setLoading] = useState<string | null>(null);
+  const [dbPlans, setDbPlans] = useState<Plan[]>([]);
+  const [fetchingPlans, setFetchingPlans] = useState(true);
+
+  useEffect(() => {
+    fetch('/api/plans')
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data)) {
+          setDbPlans(data);
+        }
+      })
+      .catch(console.error)
+      .finally(() => setFetchingPlans(false));
+  }, []);
 
   const handleSubscription = async (planId: string) => {
     if (!session) {
@@ -72,6 +59,34 @@ export const Pricing = () => {
     }
   };
 
+  const getPlanDetails = (plan: Plan) => {
+    if (plan.id === 'pro_100') {
+      return {
+        features: [
+          `${plan.essayLimit} correções por mês`,
+          'Análise ultra-detalhada',
+          'Foco total na Nota 1000',
+          'Transcrição ilimitada de fotos',
+          'Dicas exclusivas de repertório',
+          'Suporte via WhatsApp'
+        ],
+        icon: <Rocket className="text-blue-500" size={24} />,
+        popular: true
+      };
+    }
+    return {
+      features: [
+        `${plan.essayLimit} correções por mês`,
+        'Feedback detalhado por competência',
+        'Sugestões de melhoria (IA)',
+        'Histórico completo salvo',
+        'Suporte prioritário'
+      ],
+      icon: <Zap className="text-amber-500" size={24} />,
+      popular: false
+    };
+  };
+
   return (
     <section className="pricing-section" id="planos">
       <div className="container">
@@ -83,39 +98,50 @@ export const Pricing = () => {
           <p>Invista na sua aprovação com o melhor custo-benefício do Brasil.</p>
         </div>
 
-        <div className="pricing-grid">
-          {plans.map((plan) => (
-            <div key={plan.id} className={`pricing-card ${plan.popular ? 'popular' : ''}`}>
-              {plan.popular && <div className="popular-badge">MAIS ESCOLHIDO</div>}
-              <div className="card-header">
-                <div className="plan-icon">{plan.icon}</div>
-                <h3>{plan.name}</h3>
-                <div className="price">
-                  <span className="currency">R$</span>
-                  <span className="amount">{plan.price}</span>
-                  <span className="period">/mês</span>
+        {fetchingPlans ? (
+          <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-light)' }}>
+            Carregando planos...
+          </div>
+        ) : (
+          <div className="pricing-grid">
+            {dbPlans.map((plan) => {
+              const details = getPlanDetails(plan);
+              const formattedPrice = (Number(plan.price) / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+              
+              return (
+                <div key={plan.id} className={`pricing-card ${details.popular ? 'popular' : ''}`}>
+                  {details.popular && <div className="popular-badge">MAIS ESCOLHIDO</div>}
+                  <div className="card-header">
+                    <div className="plan-icon">{details.icon}</div>
+                    <h3>{plan.name}</h3>
+                    <div className="price">
+                      <span className="currency">R$</span>
+                      <span className="amount">{formattedPrice}</span>
+                      <span className="period">/mês</span>
+                    </div>
+                  </div>
+
+                  <ul className="features-list">
+                    {details.features.map((feature, i) => (
+                      <li key={i}>
+                        <Check size={18} className="check-icon" />
+                        {feature}
+                      </li>
+                    ))}
+                  </ul>
+
+                  <button 
+                    className={`btn-subscribe ${details.popular ? 'btn-primary' : 'btn-secondary'}`}
+                    onClick={() => handleSubscription(plan.id)}
+                    disabled={loading !== null}
+                  >
+                    {loading === plan.id ? 'Carregando...' : 'Assinar Agora'}
+                  </button>
                 </div>
-              </div>
-
-              <ul className="features-list">
-                {plan.features.map((feature, i) => (
-                  <li key={i}>
-                    <Check size={18} className="check-icon" />
-                    {feature}
-                  </li>
-                ))}
-              </ul>
-
-              <button 
-                className={`btn-subscribe ${plan.popular ? 'btn-primary' : 'btn-secondary'}`}
-                onClick={() => handleSubscription(plan.id)}
-                disabled={loading !== null}
-              >
-                {loading === plan.id ? 'Carregando...' : 'Assinar Agora'}
-              </button>
-            </div>
-          ))}
-        </div>
+              );
+            })}
+          </div>
+        )}
         
         <p className="pricing-footer">
           Pagamento seguro via <strong>Stripe</strong>. Cancele quando quiser.
