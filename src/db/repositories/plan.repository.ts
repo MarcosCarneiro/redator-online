@@ -1,11 +1,12 @@
 import { db } from '@/db';
 import { plans as plansTable } from '@/db/schema';
 import { eq, inArray } from 'drizzle-orm';
+import { PUBLIC_PLANS } from '@/lib/constants';
 
 export const planRepository = {
     async getPublicPlans() {
         return db.query.plans.findMany({
-            where: inArray(plansTable.id, ['pro_10', 'pro_100'])
+            where: inArray(plansTable.id, [...PUBLIC_PLANS])
         });
     },
 

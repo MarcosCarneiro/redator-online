@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Check, Sparkles, Rocket, Zap } from 'lucide-react';
 import { authClient } from '@/lib/auth-client';
+import { PUBLIC_PLANS } from '@/lib/constants';
 
 interface Plan {
   id: string;
@@ -24,8 +25,9 @@ export const Pricing = () => {
         if (Array.isArray(data)) {
           // The API already filtered to only allowed plans, 
           // we just ensure the exact order (pro_10 -> pro_100)
-          const order = ['pro_10', 'pro_100'];
-          const sorted = data.sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
+          const sorted = data.sort((a, b) => 
+            PUBLIC_PLANS.indexOf(a.id as any) - PUBLIC_PLANS.indexOf(b.id as any)
+          );
           setDbPlans(sorted);
         }
       })
