@@ -9,7 +9,7 @@ export default async function middleware(request: NextRequest) {
         pathname === "/api/transcribe" || 
         pathname === "/api/evaluate" || 
         pathname.startsWith("/api/auth") ||
-        pathname === "/api/webhook/mercadopago";
+        pathname === "/api/webhook/stripe";
 
     if (isPublicRoute) {
         return NextResponse.next();
