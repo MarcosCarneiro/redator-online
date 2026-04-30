@@ -88,14 +88,30 @@ export async function POST(req: Request) {
         const currentPlan = dbUser.plan || { id: 'free', name: 'Grátis', essayLimit: FREE_TIER_LIMIT };
         const usedCount = dbUser.essaysUsed || 0;
 
-        // Check if subscription is expired (and not in the process of paying/past_due)
-        if (dbUser.planId !== 'free' && dbUser.subscriptionExpiresAt) {
-            const isExpired = new Date() > new Date(dbUser.subscriptionExpiresAt);
-            if (isExpired && dbUser.subscriptionStatus !== 'active') {
-                 return NextResponse.json(
-                    { error: 'Sua assinatura expirou. Renove seu plano para continuar acessando os benefícios!' },
+        // Check active subscription status for paid plans
+        if (dbUser.planId && dbUser.planId !== 'free') {
+            if (dbUser.subscriptionStatus === 'canceled') {
+                return NextResponse.json(
+                    { error: 'Sua assinatura foi cancelada. Renove seu plano para continuar acessando os benefícios!' },
                     { status: 403 }
                 );
+            }
+
+            if (dbUser.subscriptionStatus === 'past_due' || dbUser.subscriptionStatus === 'unpaid') {
+                return NextResponse.json(
+                    { error: 'Há um problema com o pagamento da sua assinatura. Por favor, regularize para continuar usando.' },
+                    { status: 403 }
+                );
+            }
+
+            if (dbUser.subscriptionExpiresAt) {
+                const isExpired = new Date() > new Date(dbUser.subscriptionExpiresAt);
+                if (isExpired && dbUser.subscriptionStatus !== 'active') {
+                     return NextResponse.json(
+                        { error: 'Sua assinatura expirou. Renove seu plano para continuar acessando os benefícios!' },
+                        { status: 403 }
+                    );
+                }
             }
         }
 
