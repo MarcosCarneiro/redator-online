@@ -92,6 +92,12 @@ export async function POST(req: Request) {
                 const invoice = event.data.object as any;
                 if (invoice.subscription && userId) {
                     const subscription: any = await stripe.subscriptions.retrieve(invoice.subscription);
+                    
+                    if (!subscription.current_period_end) {
+                        console.error('Stripe Webhook: Subscription has no current_period_end', subscription.id);
+                        break;
+                    }
+
                     const expiresAt = new Date(subscription.current_period_end * 1000);
                     
                     await db.update(userTable).set({
@@ -121,9 +127,13 @@ export async function POST(req: Request) {
                     if (status === 'canceled') dbStatus = 'canceled';
                     if (status === 'past_due' || status === 'unpaid') dbStatus = 'past_due';
 
+                    const expiresAt = subscription.current_period_end 
+                        ? new Date(subscription.current_period_end * 1000)
+                        : new Date(Date.now() + 31 * 24 * 60 * 60 * 1000);
+
                     await db.update(userTable).set({
                         subscriptionStatus: dbStatus,
-                        subscriptionExpiresAt: new Date(subscription.current_period_end * 1000),
+                        subscriptionExpiresAt: expiresAt,
                     }).where(eq(userTable.id, userId));
                 }
                 break;
