@@ -1,15 +1,13 @@
-import { db } from '@/db';
-import { user as userTable, plans as plansTable, webhookLogs } from '@/db/schema';
-import { eq } from 'drizzle-orm';
+import { userRepository } from '@/db/repositories/user.repository';
+import { planRepository } from '@/db/repositories/plan.repository';
+import { webhookRepository } from '@/db/repositories/webhook.repository';
 import { stripe } from '@/lib/stripe';
 
 export async function syncUserSubscription(userId: string) {
     if (!process.env.STRIPE_SECRET_KEY) return false;
 
     try {
-        const currentUser = await db.query.user.findFirst({
-            where: eq(userTable.id, userId)
-        });
+        const currentUser = await userRepository.getById(userId);
 
         if (!currentUser || !currentUser.customerId) {
             return false;
@@ -25,7 +23,7 @@ export async function syncUserSubscription(userId: string) {
             const activeSubscription = subscriptions.data[0];
 
             // Log the sync event
-            await db.insert(webhookLogs).values({
+            await webhookRepository.createLog({
                 provider: 'stripe',
                 type: 'customer.subscription.sync',
                 source: 'sync',
@@ -36,33 +34,31 @@ export async function syncUserSubscription(userId: string) {
             });
 
             const priceId = activeSubscription.items.data[0]?.price.id;
-
-            const plan = await db.query.plans.findFirst({
-                where: eq(plansTable.stripePriceId, priceId)
-            });
+            const plan = await planRepository.getByStripePriceId(priceId);
 
             const expiresAt = (activeSubscription as any).current_period_end 
                 ? new Date((activeSubscription as any).current_period_end * 1000)
                 : new Date(Date.now() + 31 * 24 * 60 * 60 * 1000);
 
-            // Reset essays only if it's a newly synced active subscription
-            const shouldResetEssays = currentUser.subscriptionId !== activeSubscription.id || currentUser.subscriptionStatus !== 'active';
+            // Reset essays only if it's a newly synced active subscription or was not active
+            const isNewSub = currentUser.subscriptionId !== activeSubscription.id;
+            const wasNotActive = currentUser.subscriptionStatus !== 'active';
 
-            await db.update(userTable).set({
+            await userRepository.updateSubscription(userId, {
                 subscriptionStatus: 'active',
                 subscriptionId: activeSubscription.id,
                 planId: plan?.id || null,
                 subscriptionExpiresAt: expiresAt,
-                ...(shouldResetEssays ? { essaysUsed: 0 } : {})
-            }).where(eq(userTable.id, userId));
+                resetEssays: isNewSub || wasNotActive
+            });
 
             return true;
         } else {
-             // Maybe update to inactive if there are no active subs
              if (currentUser.subscriptionStatus === 'active') {
-                 await db.update(userTable).set({
+                 await userRepository.updateSubscription(userId, {
                      subscriptionStatus: 'canceled',
-                 }).where(eq(userTable.id, userId));
+                     subscriptionExpiresAt: new Date(),
+                 });
              }
         }
 

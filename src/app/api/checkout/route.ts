@@ -1,8 +1,6 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
-import { db } from '@/db';
-import { plans as plansTable } from '@/db/schema';
-import { eq } from 'drizzle-orm';
+import { planRepository } from '@/db/repositories/plan.repository';
 import { stripe } from '@/lib/stripe';
 
 export async function POST(req: Request) {
@@ -13,9 +11,7 @@ export async function POST(req: Request) {
         }
 
         const { planId } = await req.json();
-        const plan = await db.query.plans.findFirst({
-            where: eq(plansTable.id, planId)
-        });
+        const plan = await planRepository.getById(planId);
 
         if (!plan || !plan.stripePriceId) {
             return NextResponse.json({ error: 'Plano inválido ou não configurado no Stripe' }, { status: 400 });

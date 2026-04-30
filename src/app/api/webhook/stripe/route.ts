@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/db';
-import { user as userTable, plans as plansTable, webhookLogs } from '@/db/schema';
-import { eq } from 'drizzle-orm';
+import { userRepository } from '@/db/repositories/user.repository';
+import { planRepository } from '@/db/repositories/plan.repository';
+import { webhookRepository } from '@/db/repositories/webhook.repository';
 import { stripe } from '@/lib/stripe';
 import Stripe from 'stripe';
 
@@ -25,18 +26,15 @@ export async function POST(req: Request) {
     try {
         const resourceId = event.data.object && 'id' in event.data.object ? String((event.data.object as any).id) : null;
         
-        // Initial Log Entry
-        const [insertedLog] = await db.insert(webhookLogs).values({
+        logId = await webhookRepository.createLog({
             provider: 'stripe',
             type: event.type,
             source: 'webhook',
             resourceId: resourceId,
             payload: event as any,
             status: 'received',
-        }).returning({ id: webhookLogs.id });
-        logId = insertedLog.id;
+        });
 
-        // Extract metadata or client_reference_id where applicable
         let userId: string | null = null;
         const stripeObject: any = event.data.object;
 
@@ -46,18 +44,15 @@ export async function POST(req: Request) {
             userId = stripeObject.metadata.userId;
         }
 
-        // We can also retrieve the user if they have a customer ID
         if (!userId && stripeObject.customer) {
-            const customerUser = await db.query.user.findFirst({
-                where: eq(userTable.customerId, stripeObject.customer as string)
-            });
+            const customerUser = await userRepository.getByCustomerId(stripeObject.customer as string);
             if (customerUser) {
                 userId = customerUser.id;
             }
         }
 
         if (userId) {
-            await db.update(webhookLogs).set({ userId }).where(eq(webhookLogs.id, logId));
+            await webhookRepository.updateLog(logId, { userId });
         }
 
         switch (event.type) {
@@ -71,20 +66,18 @@ export async function POST(req: Request) {
                     let internalPlanId = null;
 
                     if (planId) {
-                        const plan = await db.query.plans.findFirst({
-                            where: eq(plansTable.id, planId)
-                        });
+                        const plan = await planRepository.getById(planId);
                         internalPlanId = plan?.id || null;
                     }
 
-                    await db.update(userTable).set({
+                    await userRepository.updateSubscription(userId, {
                         subscriptionStatus: 'active',
                         subscriptionId: subscriptionId,
                         customerId: customerId,
                         planId: internalPlanId,
-                        subscriptionExpiresAt: new Date(Date.now() + 31 * 24 * 60 * 60 * 1000), // Approximate next billing
-                        essaysUsed: 0,
-                    }).where(eq(userTable.id, userId));
+                        subscriptionExpiresAt: new Date(Date.now() + 31 * 24 * 60 * 60 * 1000),
+                        resetEssays: true,
+                    });
                 }
                 break;
             }
@@ -100,11 +93,11 @@ export async function POST(req: Request) {
 
                     const expiresAt = new Date(subscription.current_period_end * 1000);
                     
-                    await db.update(userTable).set({
+                    await userRepository.updateSubscription(userId, {
                         subscriptionStatus: 'active',
                         subscriptionExpiresAt: expiresAt,
-                        essaysUsed: 0,
-                    }).where(eq(userTable.id, userId));
+                        resetEssays: true,
+                    });
                 }
                 break;
             }
@@ -113,16 +106,14 @@ export async function POST(req: Request) {
                 const subscription = event.data.object as any;
                 
                 if (!userId && subscription.customer) {
-                     const customerUser = await db.query.user.findFirst({
-                        where: eq(userTable.customerId, subscription.customer as string)
-                    });
+                    const customerUser = await userRepository.getByCustomerId(subscription.customer as string);
                     if (customerUser) {
                         userId = customerUser.id;
                     }
                 }
 
                 if (userId) {
-                    const status = subscription.status; // 'active', 'past_due', 'canceled', etc
+                    const status = subscription.status;
                     let dbStatus = 'active';
                     if (status === 'canceled') dbStatus = 'canceled';
                     if (status === 'past_due' || status === 'unpaid') dbStatus = 'past_due';
@@ -131,28 +122,27 @@ export async function POST(req: Request) {
                         ? new Date(subscription.current_period_end * 1000)
                         : new Date(Date.now() + 31 * 24 * 60 * 60 * 1000);
 
-                    await db.update(userTable).set({
+                    await userRepository.updateSubscription(userId, {
                         subscriptionStatus: dbStatus,
                         subscriptionExpiresAt: expiresAt,
-                    }).where(eq(userTable.id, userId));
+                    });
                 }
                 break;
             }
         }
 
-        // Mark as processed
         if (logId) {
-            await db.update(webhookLogs).set({ status: 'processed' }).where(eq(webhookLogs.id, logId));
+            await webhookRepository.updateLog(logId, { status: 'processed' });
         }
 
         return NextResponse.json({ received: true });
     } catch (error: any) {
         console.error('Webhook Handling Error:', error);
         if (logId) {
-            await db.update(webhookLogs).set({ 
+            await webhookRepository.updateLog(logId, { 
                 status: 'error', 
                 errorMessage: error.message 
-            }).where(eq(webhookLogs.id, logId));
+            });
         }
         return NextResponse.json({ error: error.message }, { status: 500 });
     }

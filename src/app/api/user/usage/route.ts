@@ -1,8 +1,6 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
-import { db } from '@/db';
-import { user as userTable } from '@/db/schema';
-import { eq } from 'drizzle-orm';
+import { userRepository } from '@/db/repositories/user.repository';
 
 export async function GET(req: Request) {
     try {
@@ -11,12 +9,7 @@ export async function GET(req: Request) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        const dbUser = await db.query.user.findFirst({
-            where: eq(userTable.id, session.user.id),
-            with: {
-                plan: true
-            }
-        });
+        const dbUser = await userRepository.getById(session.user.id);
 
         if (!dbUser) {
             return NextResponse.json({ error: 'User not found' }, { status: 404 });

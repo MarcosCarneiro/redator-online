@@ -2,9 +2,10 @@ import { OpenAI } from 'openai';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { auth } from '@/lib/auth';
-import { db } from '@/db';
-import { user as userTable, essays } from '@/db/schema';
-import { eq, and, isNull, count } from 'drizzle-orm';
+import { userRepository } from '@/db/repositories/user.repository';
+import { essayRepository } from '@/db/repositories/essay.repository';
+
+const FREE_TIER_LIMIT = 3;
 
 const EvaluationSchema = z.object({
   totalScore: z.number().min(0).max(1000),
@@ -59,53 +60,44 @@ export async function POST(req: Request) {
   try {
     const session = await auth.api.getSession({ headers: req.headers });
     const user = session?.user;
-    const ip = req.headers.get('x-forwarded-for') || '127.0.0.1';
+    
+    // Security: Better IP detection (less spoofable than x-forwarded-for alone)
+    const ip = req.headers.get('x-real-ip') || 
+               req.headers.get('x-forwarded-for')?.split(',')[0].trim() || 
+               '127.0.0.1';
     
     let dbUser: any = null;
 
     if (!user) {
-      const guestEssays = await db
-        .select({ value: count() })
-        .from(essays)
-        .where(
-          and(
-            eq(essays.userIp, ip),
-            isNull(essays.userId)
-          )
-        );
-
-      const usageCount = guestEssays[0]?.value || 0;
+      const usageCount = await essayRepository.getGuestUsageCount(ip);
       
-      if (usageCount >= 3) {
+      if (usageCount >= FREE_TIER_LIMIT) {
         return NextResponse.json(
-          { error: 'Você atingiu o limite de 3 avaliações gratuitas. Crie uma conta ou faça login para continuar avaliando suas redações e salvar seu histórico!' },
+          { error: `Você atingiu o limite de ${FREE_TIER_LIMIT} avaliações gratuitas. Crie uma conta ou faça login para continuar avaliando suas redações e salvar seu histórico!` },
           { status: 403 }
         );
       }
     } else {
-        // Logged in user: Check plan and limits
-        dbUser = await db.query.user.findFirst({
-            where: eq(userTable.id, user.id),
-            with: {
-                plan: true
-            }
-        });
+        dbUser = await userRepository.getById(user.id);
 
         if (!dbUser) {
             return NextResponse.json({ error: 'Usuário não encontrado' }, { status: 404 });
         }
 
-        // Check expiration
-        if (dbUser.subscriptionStatus === 'active' && dbUser.subscriptionExpiresAt) {
+        // Strict Subscription Check
+        const currentPlan = dbUser.plan || { id: 'free', name: 'Grátis', essayLimit: FREE_TIER_LIMIT };
+        const usedCount = dbUser.essaysUsed || 0;
+
+        // Check if subscription is expired (and not in the process of paying/past_due)
+        if (dbUser.planId !== 'free' && dbUser.subscriptionExpiresAt) {
             const isExpired = new Date() > new Date(dbUser.subscriptionExpiresAt);
-            if (isExpired) {
-                // If expired, treat as free or block depending on policy
-                // For now, let's just let them know
+            if (isExpired && dbUser.subscriptionStatus !== 'active') {
+                 return NextResponse.json(
+                    { error: 'Sua assinatura expirou. Renove seu plano para continuar acessando os benefícios!' },
+                    { status: 403 }
+                );
             }
         }
-
-        const currentPlan = dbUser.plan || { id: 'free', name: 'Grátis', essayLimit: 3 };
-        const usedCount = dbUser.essaysUsed || 0;
 
         if (usedCount >= currentPlan.essayLimit) {
             return NextResponse.json(
@@ -151,7 +143,6 @@ export async function POST(req: Request) {
     rawContent = response.choices[0].message.content || '';
     const parsedData = JSON.parse(rawContent || '{}');
     
-    // Failsafe: Manual recalculation of total score to prevent AI hallucinations
     if (parsedData.competencies && Array.isArray(parsedData.competencies)) {
       const realTotal = parsedData.competencies.reduce((acc: number, comp: any) => acc + (Number(comp.score) || 0), 0);
       parsedData.totalScore = realTotal;
@@ -161,14 +152,10 @@ export async function POST(req: Request) {
 
     try {
       if (user) {
-        // Increment essaysUsed
-        await db.update(userTable)
-          .set({ essaysUsed: (dbUser?.essaysUsed || 0) + 1 })
-          .where(eq(userTable.id, user.id));
+        // Atomic increment in DB
+        await userRepository.incrementEssayCount(user.id);
 
-        // Better-Auth manages users automatically, but we might want to ensure custom fields are handled
-        // For now, let's just insert the essay linked to the user.id
-        await db.insert(essays).values({
+        await essayRepository.create({
           userId: user.id,
           userIp: ip,
           theme,
@@ -177,7 +164,7 @@ export async function POST(req: Request) {
           evaluation: validatedData,
         });
       } else {
-        await db.insert(essays).values({
+        await essayRepository.create({
           userIp: ip,
           theme,
           content: text,
@@ -194,8 +181,6 @@ export async function POST(req: Request) {
     console.error('API Error:', error);
     
     if (error instanceof z.ZodError) {
-      console.error('Zod Validation Error Details:', JSON.stringify(error.issues, null, 2));
-      console.error('Raw Content that failed validation:', rawContent);
       return NextResponse.json(
         { error: 'A IA gerou uma resposta inválida. Por favor, tente novamente.' },
         { status: 502 }
