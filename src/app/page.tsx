@@ -53,6 +53,7 @@ export default function Home() {
   const [transcribing, setTranscribing] = useState(false);
   const [evaluation, setEvaluation] = useState<Evaluation | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [limitReached, setLimitReached] = useState(false);
   
   // Refs
   const resultsRef = useRef<HTMLDivElement>(null);
@@ -130,6 +131,7 @@ export default function Home() {
     setLoading(true);
     setError(null);
     setEvaluation(null);
+    setLimitReached(false);
     
     try {
       const response = await fetch('/api/evaluate', {
@@ -142,9 +144,15 @@ export default function Home() {
         throw new Error('Você atingiu o limite de 3 correções por hora. Descanse um pouco!');
       }
       
-      if (!response.ok) throw new Error('Falha ao processar a redação.');
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        if (response.status === 403 && !session) {
+          setLimitReached(true);
+        }
+        throw new Error(data.error || 'Falha ao processar a redação.');
+      }
       
-      const data = await response.json();
       setEvaluation(data);
     } catch (err: any) {
       setError(err.message || 'Erro inesperado.');
@@ -176,7 +184,24 @@ export default function Home() {
             fileInputRef={fileInputRef}
           />
 
-          {error && (
+          {error && limitReached && !session && (
+            <div style={{ textAlign: 'center', background: '#eff6ff', padding: '2.5rem', borderRadius: '24px', marginTop: '2rem', border: '2px solid #bfdbfe' }}>
+              <h3 style={{ color: '#1e3a8a', marginBottom: '1rem', fontSize: '1.5rem', fontWeight: 800 }}>Limite Gratuito Atingido 🚀</h3>
+              <p style={{ color: '#3b82f6', marginBottom: '2rem', fontSize: '1.1rem' }}>
+                Você já usou todas as suas correções gratuitas como visitante. Assine um de nossos planos ou crie uma conta para continuar evoluindo!
+              </p>
+              <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+                <a href="#planos" className="btn-primary" style={{ textDecoration: 'none', padding: '0.8rem 2rem' }}>
+                  Ver Planos
+                </a>
+                <button className="btn-secondary" onClick={() => authClient.signIn.social({ provider: "google" })} style={{ padding: '0.8rem 2rem' }}>
+                  Criar Conta Grátis
+                </button>
+              </div>
+            </div>
+          )}
+
+          {error && (!limitReached || session) && (
             <div style={{ color: '#ef4444', textAlign: 'center', marginTop: '2rem', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
               <AlertCircle size={20} />
               {error}
