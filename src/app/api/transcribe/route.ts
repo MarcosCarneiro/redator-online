@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { essayRepository } from '@/db/repositories/essay.repository';
 import { planRepository } from '@/db/repositories/plan.repository';
+import { userRepository } from '@/db/repositories/user.repository';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -25,6 +26,37 @@ export async function POST(req: Request) {
           { error: 'Você atingiu o limite de transcrições gratuitas. Faça login para continuar.' },
           { status: 403 }
         );
+      }
+    } else {
+      const dbUser = await userRepository.getById(user.id);
+      if (!dbUser) return NextResponse.json({ error: 'Usuário não encontrado' }, { status: 404 });
+      
+      if (dbUser.planId !== 'free' && dbUser.subscriptionExpiresAt) {
+          const isExpired = new Date() > new Date(dbUser.subscriptionExpiresAt);
+          if (isExpired && dbUser.subscriptionStatus !== 'active') {
+                return NextResponse.json(
+                  { error: 'Sua assinatura expirou. Renove seu plano para continuar acessando os benefícios!' },
+                  { status: 403 }
+              );
+          }
+      }
+
+      const isUnlimited = dbUser.planId === 'pro_100'; 
+      
+      // We fall back to 3 manually since we don't have the free plan fetched here unless we do it
+      let limit = dbUser.plan?.essayLimit;
+      if (!limit) {
+         const freePlan = await planRepository.getById('free');
+         limit = freePlan?.essayLimit || 3;
+      }
+      
+      const usedCount = dbUser.transcriptionsUsed || 0;
+
+      if (!isUnlimited && usedCount >= limit) {
+          return NextResponse.json(
+            { error: `Você atingiu o limite de ${limit} transcrições do seu plano atual. Faça o upgrade para o Plano Intensivo para ter transcrições ilimitadas!` },
+            { status: 403 }
+          );
       }
     }
 
@@ -62,6 +94,14 @@ export async function POST(req: Request) {
     });
 
     const transcribedText = response.choices[0].message.content;
+
+    if (user) {
+        try {
+            await userRepository.incrementTranscriptionCount(user.id);
+        } catch (dbError) {
+            console.error('Failed to increment transcription count:', dbError);
+        }
+    }
 
     return NextResponse.json({ text: transcribedText });
   } catch (error: any) {

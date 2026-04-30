@@ -26,6 +26,14 @@ export const userRepository = {
             .where(eq(userTable.id, userId));
     },
 
+    async incrementTranscriptionCount(userId: string) {
+        return db.update(userTable)
+            .set({ 
+                transcriptionsUsed: sql`${userTable.transcriptionsUsed} + 1` 
+            })
+            .where(eq(userTable.id, userId));
+    },
+
     async updateSubscription(userId: string, data: {
         subscriptionStatus: string;
         subscriptionId?: string;
@@ -42,7 +50,10 @@ export const userRepository = {
         if (data.subscriptionId) updateData.subscriptionId = data.subscriptionId;
         if (data.customerId) updateData.customerId = data.customerId;
         if (data.planId !== undefined) updateData.planId = data.planId;
-        if (data.resetEssays) updateData.essaysUsed = 0;
+        if (data.resetEssays) {
+            updateData.essaysUsed = 0;
+            updateData.transcriptionsUsed = 0;
+        }
 
         return db.update(userTable)
             .set(updateData)

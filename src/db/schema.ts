@@ -21,6 +21,7 @@ export const user = pgTable("user", {
     // Subscription fields
     planId: text('plan_id').references(() => plans.id),
     essaysUsed: integer('essays_used').default(0),
+    transcriptionsUsed: integer('transcriptions_used').default(0),
     subscriptionStatus: text('subscription_status').default('none'), // none, active, past_due, canceled
     subscriptionId: text('subscription_id'),
     subscriptionExpiresAt: timestamp('subscription_expires_at'),

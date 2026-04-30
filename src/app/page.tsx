@@ -147,7 +147,7 @@ export default function Home() {
       const data = await response.json().catch(() => ({}));
 
       if (!response.ok) {
-        if (response.status === 403 && !session) {
+        if (response.status === 403) {
           setLimitReached(true);
         }
         throw new Error(data.error || 'Falha ao processar a redação.');
