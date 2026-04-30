@@ -4,8 +4,7 @@ import { z } from 'zod';
 import { auth } from '@/lib/auth';
 import { userRepository } from '@/db/repositories/user.repository';
 import { essayRepository } from '@/db/repositories/essay.repository';
-
-const FREE_TIER_LIMIT = 3;
+import { planRepository } from '@/db/repositories/plan.repository';
 
 const EvaluationSchema = z.object({
   totalScore: z.number().min(0).max(1000),
