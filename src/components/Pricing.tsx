@@ -22,7 +22,13 @@ export const Pricing = () => {
       .then(res => res.json())
       .then(data => {
         if (Array.isArray(data)) {
-          setDbPlans(data);
+          // Filter only the main plans and sort them: pro_10 first, then pro_100
+          const allowedPlans = ['pro_10', 'pro_100'];
+          const filtered = data
+            .filter(plan => allowedPlans.includes(plan.id))
+            .sort((a, b) => allowedPlans.indexOf(a.id) - allowedPlans.indexOf(b.id));
+          
+          setDbPlans(filtered);
         }
       })
       .catch(console.error)
@@ -67,8 +73,7 @@ export const Pricing = () => {
           'Análise ultra-detalhada',
           'Foco total na Nota 1000',
           'Transcrição ilimitada de fotos',
-          'Dicas exclusivas de repertório',
-          'Suporte via WhatsApp'
+          'Dicas exclusivas de repertório'
         ],
         icon: <Rocket className="text-blue-500" size={24} />,
         popular: true
@@ -79,8 +84,7 @@ export const Pricing = () => {
         `${plan.essayLimit} correções por mês`,
         'Feedback detalhado por competência',
         'Sugestões de melhoria (IA)',
-        'Histórico completo salvo',
-        'Suporte prioritário'
+        'Histórico completo salvo'
       ],
       icon: <Zap className="text-amber-500" size={24} />,
       popular: false
