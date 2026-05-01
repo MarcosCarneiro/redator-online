@@ -5,6 +5,7 @@ import { auth } from '@/lib/auth';
 import { userRepository } from '@/db/repositories/user.repository';
 import { essayRepository } from '@/db/repositories/essay.repository';
 import { planRepository } from '@/db/repositories/plan.repository';
+import { redis } from '@/lib/redis';
 
 const EvaluationSchema = z.object({
   totalScore: z.number().min(0).max(1000),
@@ -71,7 +72,13 @@ export async function POST(req: Request) {
     const FREE_TIER_LIMIT = freePlan?.essayLimit || 3;
 
     if (!user) {
-      const usageCount = await essayRepository.getGuestUsageCount(ip);
+      let usageCount = 0;
+      try {
+        usageCount = (await redis.get<number>(`guest:usage:${ip}`)) || 0;
+      } catch (error) {
+        console.warn('Redis error, falling back to DB:', error);
+        usageCount = await essayRepository.getGuestUsageCount(ip);
+      }
       
       if (usageCount >= FREE_TIER_LIMIT) {
         return NextResponse.json(
@@ -168,6 +175,12 @@ export async function POST(req: Request) {
           evaluation: validatedData,
         });
       } else {
+        try {
+          await redis.incr(`guest:usage:${ip}`);
+        } catch (error) {
+          console.error('Failed to increment Redis counter:', error);
+        }
+
         await essayRepository.create({
           userIp: ip,
           theme,
