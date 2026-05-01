@@ -92,11 +92,25 @@ export async function POST(req: Request) {
                     }
 
                     const expiresAt = new Date(subscription.current_period_end * 1000);
+                    const dbUser = await userRepository.getById(userId);
+                    
+                    let shouldReset = true;
+                    if (dbUser && dbUser.subscriptionExpiresAt) {
+                        const currentExpiresAt = new Date(dbUser.subscriptionExpiresAt);
+                        const diffTime = Math.abs(expiresAt.getTime() - currentExpiresAt.getTime());
+                        const diffDays = diffTime / (1000 * 60 * 60 * 24);
+                        
+                        // Avoid resetting credits if this billing cycle was already processed
+                        // (e.g., from checkout.session.completed or duplicate webhooks)
+                        if (diffDays <= 5) {
+                            shouldReset = false;
+                        }
+                    }
                     
                     await userRepository.updateSubscription(userId, {
                         subscriptionStatus: 'active',
                         subscriptionExpiresAt: expiresAt,
-                        resetEssays: true,
+                        resetEssays: shouldReset,
                     });
                 }
                 break;
