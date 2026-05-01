@@ -10,6 +10,8 @@ export const redis = new Redis({
   token: process.env.REDIS_STORAGE_KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN || '',
 });
 
+export default redis;
+
 const CACHE_TTL_SECONDS = 86400; // 24 hours
 
 export const redisService = {

@@ -1,15 +1,54 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { Ratelimit } from "@upstash/ratelimit";
+import redis from "@/lib/redis";
+
+// Create a new ratelimiter, that allows 10 requests per 10 seconds
+const ratelimit = new Ratelimit({
+  redis: redis,
+  limiter: Ratelimit.slidingWindow(10, "10 s"),
+  analytics: true,
+  prefix: "@upstash/ratelimit",
+});
 
 export default async function middleware(request: NextRequest) {
     const { pathname } = request.nextUrl;
 
-    // Define public routes
+    // 1. Rate Limiting for API routes
+    if (pathname.startsWith('/api') && pathname !== '/api/webhook/stripe') {
+        const ip = request.headers.get('x-real-ip') || 
+                   request.headers.get('x-forwarded-for')?.split(',')[0].trim() || 
+                   '127.0.0.1';
+        
+        const { success, limit, reset, remaining } = await ratelimit.limit(
+          `ratelimit:global:${ip}`
+        );
+
+        if (!success) {
+            return NextResponse.json(
+                { error: "Muitas requisições. Por favor, aguarde um pouco antes de tentar novamente." },
+                { 
+                    status: 429,
+                    headers: {
+                        'X-RateLimit-Limit': limit.toString(),
+                        'X-RateLimit-Remaining': remaining.toString(),
+                        'X-RateLimit-Reset': reset.toString(),
+                    }
+                }
+            );
+        }
+    }
+
+    // 2. Auth Protection Logic
     const isPublicRoute = 
         pathname === "/" || 
         pathname === "/api/transcribe" || 
         pathname === "/api/evaluate" || 
         pathname.startsWith("/api/auth") ||
-        pathname === "/api/webhook/stripe";
+        pathname === "/api/webhook/stripe" ||
+        pathname === "/planos" ||
+        pathname.startsWith("/history/") || // Detailed essays are server-side checked
+        pathname === "/favicon.ico" ||
+        pathname === "/globals.css";
 
     if (isPublicRoute) {
         return NextResponse.next();
@@ -17,10 +56,16 @@ export default async function middleware(request: NextRequest) {
 
     // Optimistic check: existence of session cookie
     const cookies = request.cookies.getAll();
-    const hasSessionCookie = cookies.some(c => c.name.includes("session-token") || c.name.includes("better-auth"));
+    const hasSessionCookie = cookies.some(c => 
+        c.name.includes("session-token") || 
+        c.name.includes("better-auth")
+    );
 
     if (!hasSessionCookie) {
-        return NextResponse.redirect(new URL("/", request.url));
+        // Only redirect for page requests, not for internal API calls that might fail auth check
+        if (!pathname.startsWith('/api')) {
+            return NextResponse.redirect(new URL("/", request.url));
+        }
     }
 
     return NextResponse.next();
@@ -28,9 +73,12 @@ export default async function middleware(request: NextRequest) {
 
 export const config = {
     matcher: [
-        // Skip Next.js internals and all static files
-        '/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)',
-        // Always run for API routes except public ones
-        '/(api|trpc)(.*)',
+        /*
+         * Match all request paths except for the ones starting with:
+         * - _next/static (static files)
+         * - _next/image (image optimization files)
+         * - favicon.ico (favicon file)
+         */
+        '/((?!_next/static|_next/image|favicon.ico).*)',
     ],
 };
