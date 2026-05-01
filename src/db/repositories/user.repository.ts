@@ -1,5 +1,5 @@
 import { db } from '@/db';
-import { user as userTable, plans as plansTable } from '@/db/schema';
+import { user as userTable } from '@/db/schema';
 import { eq, sql } from 'drizzle-orm';
 
 export const userRepository = {
@@ -42,7 +42,7 @@ export const userRepository = {
         subscriptionExpiresAt: Date;
         resetEssays?: boolean;
     }) {
-        const updateData: any = {
+        const updateData: Record<string, string | number | Date | null> = {
             subscriptionStatus: data.subscriptionStatus,
             subscriptionExpiresAt: data.subscriptionExpiresAt,
         };

@@ -9,7 +9,7 @@ export const webhookRepository = {
         source: string;
         userId?: string | null;
         resourceId?: string | null;
-        payload: any;
+        payload: unknown;
         status: string;
     }) {
         const [inserted] = await db.insert(webhookTable)
@@ -22,7 +22,7 @@ export const webhookRepository = {
         userId?: string | null;
         status?: string;
         errorMessage?: string | null;
-        payload?: any;
+        payload?: unknown;
     }) {
         return db.update(webhookTable)
             .set(data)

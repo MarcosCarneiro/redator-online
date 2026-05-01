@@ -26,7 +26,7 @@ export const Pricing = () => {
           // The API already filtered to only allowed plans, 
           // we just ensure the exact order (pro_10 -> pro_100)
           const sorted = data.sort((a, b) => 
-            PUBLIC_PLANS.indexOf(a.id as any) - PUBLIC_PLANS.indexOf(b.id as any)
+            (PUBLIC_PLANS as string[]).indexOf(a.id) - (PUBLIC_PLANS as string[]).indexOf(b.id)
           );
           setDbPlans(sorted);
         }
@@ -54,12 +54,13 @@ export const Pricing = () => {
 
       const data = await response.json();
       if (data.init_point) {
-        window.location.href = data.init_point;
+        window.location.assign(data.init_point);
       } else {
         throw new Error(data.error || 'Erro ao iniciar checkout');
       }
-    } catch (error: any) {
-      alert(error.message);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Erro ao iniciar checkout';
+      alert(message);
     } finally {
       setLoading(null);
     }

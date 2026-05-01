@@ -41,8 +41,8 @@ export async function POST(req: Request) {
         }
 
         return NextResponse.json({ init_point: checkoutSession.url });
-    } catch (error: any) {
-        console.error('Checkout Error:', error);
+    } catch (error: unknown) {
+        console.error('Checkout Error:', error instanceof Error ? error.message : error);
         return NextResponse.json({ error: 'Erro ao processar o checkout.' }, { status: 500 });
     }
 }

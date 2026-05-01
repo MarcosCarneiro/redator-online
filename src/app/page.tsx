@@ -16,18 +16,7 @@ import { Pricing } from '@/components/Pricing';
 import { authClient } from '@/lib/auth-client';
 
 // Types
-export interface Competency {
-  name: string;
-  score: number;
-  explanation: string;
-  tips: string;
-}
-
-export interface Evaluation {
-  totalScore: number;
-  competencies: Competency[];
-  generalFeedback: string;
-}
+import { Evaluation } from '@/lib/types';
 
 export default function Home() {
   const { data: session } = authClient.useSession();
@@ -58,16 +47,28 @@ export default function Home() {
   // Refs
   const resultsRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const isInitialMount = useRef(true);
 
   // Persistence (Drafts)
   useEffect(() => {
     const savedEssay = localStorage.getItem('redator_draft');
     const savedTheme = localStorage.getItem('redator_theme');
-    if (savedEssay) setEssay(savedEssay);
-    if (savedTheme) setTheme(savedTheme);
+    
+    // Use requestAnimationFrame to defer state updates and avoid cascading renders lint error
+    if (savedEssay || savedTheme) {
+      requestAnimationFrame(() => {
+        if (savedEssay) setEssay(savedEssay);
+        if (savedTheme) setTheme(savedTheme);
+      });
+    }
+    
+    // Mark as initialized
+    isInitialMount.current = false;
   }, []);
 
   useEffect(() => {
+    if (isInitialMount.current) return;
+    
     localStorage.setItem('redator_draft', essay);
     localStorage.setItem('redator_theme', theme);
   }, [essay, theme]);
@@ -110,8 +111,9 @@ export default function Home() {
         setEssay(prev => prev + (prev ? '\n\n' : '') + data.text);
         setTranscribing(false);
       };
-    } catch (err: any) {
-      setError('Erro ao processar imagem: ' + err.message);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Erro ao processar imagem';
+      setError(message);
       setTranscribing(false);
     }
   };
@@ -154,8 +156,9 @@ export default function Home() {
       }
       
       setEvaluation(data);
-    } catch (err: any) {
-      setError(err.message || 'Erro inesperado.');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Erro inesperado.';
+      setError(message);
     } finally {
       setLoading(false);
     }

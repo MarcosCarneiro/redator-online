@@ -9,6 +9,8 @@ import Link from 'next/link';
 import { ChevronLeft } from 'lucide-react';
 import { notFound, redirect } from 'next/navigation';
 
+import { Evaluation } from '@/lib/types';
+
 interface Props {
   params: Promise<{ id: string }>;
 }
@@ -55,7 +57,7 @@ export default async function EssayDetailPage({ params }: Props) {
         />
 
         <EvaluationResults 
-          evaluation={essayData.evaluation as any}
+          evaluation={essayData.evaluation as unknown as Evaluation}
           theme={essayData.theme}
           essay={essayData.content}
         />

@@ -6,6 +6,13 @@ import { userRepository } from '@/db/repositories/user.repository';
 import { essayRepository } from '@/db/repositories/essay.repository';
 import { planRepository } from '@/db/repositories/plan.repository';
 import { redisService } from '@/lib/redis';
+import { user as userTable, plans as plansTable } from '@/db/schema';
+import { InferSelectModel } from 'drizzle-orm';
+
+type UserWithPlan = InferSelectModel<typeof userTable> & {
+  plan: InferSelectModel<typeof plansTable> | null;
+};
+
 
 const EvaluationSchema = z.object({
   totalScore: z.number().min(0).max(1000),
@@ -66,7 +73,7 @@ export async function POST(req: Request) {
                req.headers.get('x-forwarded-for')?.split(',')[0].trim() || 
                '127.0.0.1';
     
-    let dbUser: any = null;
+    let dbUser: UserWithPlan | null = null;
 
     const freePlan = await planRepository.getById('free');
     const FREE_TIER_LIMIT = freePlan?.essayLimit || 3;
@@ -87,7 +94,7 @@ export async function POST(req: Request) {
         );
       }
     } else {
-        dbUser = await userRepository.getById(user.id);
+        dbUser = await userRepository.getById(user.id) as UserWithPlan | null;
 
         if (!dbUser) {
             return NextResponse.json({ error: 'Usuário não encontrado' }, { status: 404 });
@@ -155,7 +162,7 @@ export async function POST(req: Request) {
     const parsedData = JSON.parse(rawContent || '{}');
     
     if (parsedData.competencies && Array.isArray(parsedData.competencies)) {
-      const realTotal = parsedData.competencies.reduce((acc: number, comp: any) => acc + (Number(comp.score) || 0), 0);
+      const realTotal = parsedData.competencies.reduce((acc: number, comp: { score: number }) => acc + (Number(comp.score) || 0), 0);
       parsedData.totalScore = realTotal;
     }
 
@@ -194,8 +201,8 @@ export async function POST(req: Request) {
     }
 
     return NextResponse.json(validatedData);
-  } catch (error: any) {
-    console.error('API Error:', error);
+  } catch (error: unknown) {
+    console.error('API Error:', error instanceof Error ? error.message : error);
     
     if (error instanceof z.ZodError) {
       return NextResponse.json(

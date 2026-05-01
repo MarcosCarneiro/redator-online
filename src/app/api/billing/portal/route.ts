@@ -25,8 +25,8 @@ export async function POST(req: Request) {
         });
 
         return NextResponse.json({ url: portalSession.url });
-    } catch (error: any) {
-        console.error('Stripe Portal Error:', error);
+    } catch (error: unknown) {
+        console.error('Stripe Portal Error:', error instanceof Error ? error.message : error);
         return NextResponse.json(
             { error: 'Erro ao conectar com o portal de pagamentos.' },
             { status: 500 }

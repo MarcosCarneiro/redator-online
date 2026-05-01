@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-import { db } from '@/db';
 import { userRepository } from '@/db/repositories/user.repository';
 import { planRepository } from '@/db/repositories/plan.repository';
 import { webhookRepository } from '@/db/repositories/webhook.repository';
@@ -18,25 +17,26 @@ export async function POST(req: Request) {
             throw new Error('Missing stripe-signature or STRIPE_WEBHOOK_SECRET');
         }
         event = stripe.webhooks.constructEvent(body, signature, process.env.STRIPE_WEBHOOK_SECRET);
-    } catch (error: any) {
-        console.error('Stripe Webhook Signature Error:', error.message);
+    } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        console.error('Stripe Webhook Signature Error:', message);
         return NextResponse.json({ error: 'Invalid signature' }, { status: 400 });
     }
 
     try {
-        const resourceId = event.data.object && 'id' in event.data.object ? String((event.data.object as any).id) : null;
+        const resourceId = event.data.object && 'id' in event.data.object ? String(event.data.object.id) : null;
         
         logId = await webhookRepository.createLog({
             provider: 'stripe',
             type: event.type,
             source: 'webhook',
             resourceId: resourceId,
-            payload: event as any,
+            payload: event as unknown as Record<string, unknown>,
             status: 'received',
         });
 
         let userId: string | null = null;
-        const stripeObject: any = event.data.object;
+        const stripeObject = event.data.object as (Stripe.Checkout.Session | Stripe.Subscription | Stripe.Invoice) & { client_reference_id?: string; customer?: string; metadata?: { userId?: string } };
 
         if (stripeObject.client_reference_id) {
             userId = stripeObject.client_reference_id;
@@ -45,7 +45,7 @@ export async function POST(req: Request) {
         }
 
         if (!userId && stripeObject.customer) {
-            const customerUser = await userRepository.getByCustomerId(stripeObject.customer as string);
+            const customerUser = await userRepository.getByCustomerId(stripeObject.customer);
             if (customerUser) {
                 userId = customerUser.id;
             }
@@ -82,9 +82,9 @@ export async function POST(req: Request) {
                 break;
             }
             case 'invoice.payment_succeeded': {
-                const invoice = event.data.object as any;
+                const invoice = event.data.object as Stripe.Invoice;
                 if (invoice.subscription && userId) {
-                    const subscription: any = await stripe.subscriptions.retrieve(invoice.subscription);
+                    const subscription = await stripe.subscriptions.retrieve(invoice.subscription as string);
                     
                     if (!subscription.current_period_end) {
                         console.error('Stripe Webhook: Subscription has no current_period_end', subscription.id);
@@ -117,7 +117,7 @@ export async function POST(req: Request) {
             }
             case 'customer.subscription.updated':
             case 'customer.subscription.deleted': {
-                const subscription = event.data.object as any;
+                const subscription = event.data.object as Stripe.Subscription;
                 
                 if (!userId && subscription.customer) {
                     const customerUser = await userRepository.getByCustomerId(subscription.customer as string);
@@ -150,14 +150,15 @@ export async function POST(req: Request) {
         }
 
         return NextResponse.json({ received: true });
-    } catch (error: any) {
-        console.error('Webhook Handling Error:', error);
+    } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        console.error('Webhook Handling Error:', message);
         if (logId) {
             await webhookRepository.updateLog(logId, { 
                 status: 'error', 
-                errorMessage: error.message 
+                errorMessage: message 
             });
         }
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        return NextResponse.json({ error: message }, { status: 500 });
     }
 }

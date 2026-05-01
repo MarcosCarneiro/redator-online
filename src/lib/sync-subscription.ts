@@ -3,6 +3,8 @@ import { planRepository } from '@/db/repositories/plan.repository';
 import { webhookRepository } from '@/db/repositories/webhook.repository';
 import { stripe } from '@/lib/stripe';
 
+import { Stripe } from 'stripe';
+
 export async function syncUserSubscription(userId: string) {
     if (!process.env.STRIPE_SECRET_KEY) return false;
 
@@ -20,7 +22,7 @@ export async function syncUserSubscription(userId: string) {
         });
 
         if (subscriptions.data.length > 0) {
-            const activeSubscription = subscriptions.data[0];
+            const activeSubscription = subscriptions.data[0] as Stripe.Subscription;
 
             // Log the sync event
             await webhookRepository.createLog({
@@ -29,15 +31,15 @@ export async function syncUserSubscription(userId: string) {
                 source: 'sync',
                 userId: userId,
                 resourceId: activeSubscription.id,
-                payload: activeSubscription as any,
+                payload: activeSubscription,
                 status: 'processed'
             });
 
             const priceId = activeSubscription.items.data[0]?.price.id;
             const plan = await planRepository.getByStripePriceId(priceId);
 
-            const expiresAt = (activeSubscription as any).current_period_end 
-                ? new Date((activeSubscription as any).current_period_end * 1000)
+            const expiresAt = activeSubscription.current_period_end 
+                ? new Date(activeSubscription.current_period_end * 1000)
                 : new Date(Date.now() + 31 * 24 * 60 * 60 * 1000);
 
             // Reset essays only if it's a newly synced active subscription or was not active
@@ -63,7 +65,7 @@ export async function syncUserSubscription(userId: string) {
         }
 
         return false;
-    } catch (error) {
+    } catch (error: unknown) {
         console.error('Sync function error:', error);
         return false;
     }

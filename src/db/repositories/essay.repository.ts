@@ -38,7 +38,7 @@ export const essayRepository = {
         theme: string;
         content: string;
         totalScore: number;
-        evaluation: any;
+        evaluation: unknown;
     }) {
         return db.insert(essayTable).values(data);
     }

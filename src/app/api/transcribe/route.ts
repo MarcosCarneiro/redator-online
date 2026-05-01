@@ -104,8 +104,8 @@ export async function POST(req: Request) {
     }
 
     return NextResponse.json({ text: transcribedText });
-  } catch (error: any) {
-    console.error('Transcription Error:', error);
+  } catch (error: unknown) {
+    console.error('Transcription Error:', error instanceof Error ? error.message : error);
     return NextResponse.json(
       { error: 'Ocorreu um erro ao transcrever a imagem.' },
       { status: 500 }

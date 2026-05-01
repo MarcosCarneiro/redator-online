@@ -19,8 +19,8 @@ export async function GET(req: Request) {
             return NextResponse.json({ synced: true, status: 'none' });
         }
 
-    } catch (error: any) {
-        console.error('Sync Error:', error);
+    } catch (error: unknown) {
+        console.error('Sync Error:', error instanceof Error ? error.message : error);
         return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
     }
 }

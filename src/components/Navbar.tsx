@@ -3,6 +3,7 @@
 import { authClient } from "@/lib/auth-client";
 import { LogOut, User as UserIcon, CreditCard } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 import { useEffect, useState } from "react";
 
 export const Navbar = () => {
@@ -69,10 +70,12 @@ export const Navbar = () => {
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: '#f8fafc', padding: '0.4rem 0.8rem', borderRadius: '100px', border: '1px solid #f1f5f9' }}>
                 {session.user.image ? (
-                  <img 
+                  <Image 
                     src={session.user.image} 
-                    alt={session.user.name} 
-                    style={{ width: 24, height: 24, borderRadius: '50%' }} 
+                    alt={session.user.name || "Usuário"} 
+                    width={24}
+                    height={24}
+                    style={{ borderRadius: '50%' }} 
                   />
                 ) : (
                   <UserIcon size={16} />
