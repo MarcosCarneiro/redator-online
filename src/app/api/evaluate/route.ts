@@ -8,6 +8,8 @@ import { planRepository } from '@/db/repositories/plan.repository';
 import { redisService } from '@/lib/redis';
 import { user as userTable, plans as plansTable } from '@/db/schema';
 import { InferSelectModel } from 'drizzle-orm';
+import { getClientIp } from '@/lib/ip';
+import { getGuestUsageRobust } from '@/lib/usage';
 
 type UserWithPlan = InferSelectModel<typeof userTable> & {
   plan: InferSelectModel<typeof plansTable> | null;
@@ -68,10 +70,7 @@ export async function POST(req: Request) {
     const session = await auth.api.getSession({ headers: req.headers });
     const user = session?.user;
     
-    // Security: Better IP detection (less spoofable than x-forwarded-for alone)
-    const ip = req.headers.get('x-real-ip') || 
-               req.headers.get('x-forwarded-for')?.split(',')[0].trim() || 
-               '127.0.0.1';
+    const ip = getClientIp(req);
     
     let dbUser: UserWithPlan | null = null;
 
@@ -79,13 +78,7 @@ export async function POST(req: Request) {
     const FREE_TIER_LIMIT = freePlan?.essayLimit || 3;
 
     if (!user) {
-      let usageCount = 0;
-      try {
-        usageCount = await redisService.getGuestUsage(ip);
-      } catch (error) {
-        console.warn('Redis error, falling back to DB:', error);
-        usageCount = await essayRepository.getGuestUsageCount(ip);
-      }
+      const usageCount = await getGuestUsageRobust(ip);
       
       if (usageCount >= FREE_TIER_LIMIT) {
         return NextResponse.json(

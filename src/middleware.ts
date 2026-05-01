@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { Ratelimit } from "@upstash/ratelimit";
 import redis from "@/lib/redis";
+import { getClientIp } from "@/lib/ip";
 
 // Create a new ratelimiter, that allows 10 requests per 10 seconds
 const ratelimit = new Ratelimit({
@@ -15,9 +16,7 @@ export default async function middleware(request: NextRequest) {
 
     // 1. Rate Limiting for API routes
     if (pathname.startsWith('/api') && pathname !== '/api/webhook/stripe') {
-        const ip = request.headers.get('x-real-ip') || 
-                   request.headers.get('x-forwarded-for')?.split(',')[0].trim() || 
-                   '127.0.0.1';
+        const ip = getClientIp(request);
         
         const { success, limit, reset, remaining } = await ratelimit.limit(
           `ratelimit:global:${ip}`

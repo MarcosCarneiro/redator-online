@@ -1,9 +1,10 @@
 import { OpenAI } from 'openai';
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
-import { essayRepository } from '@/db/repositories/essay.repository';
 import { planRepository } from '@/db/repositories/plan.repository';
 import { userRepository } from '@/db/repositories/user.repository';
+import { getClientIp } from '@/lib/ip';
+import { getGuestUsageRobust } from '@/lib/usage';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -13,11 +14,11 @@ export async function POST(req: Request) {
   try {
     const session = await auth.api.getSession({ headers: req.headers });
     const user = session?.user;
-    const ip = req.headers.get('x-forwarded-for') || '127.0.0.1';
+    const ip = getClientIp(req);
 
     // Protect against anonymous abuse (Rate limiting for guests)
     if (!user) {
-      const usageCount = await essayRepository.getGuestUsageCount(ip);
+      const usageCount = await getGuestUsageRobust(ip);
       const freePlan = await planRepository.getById('free');
       const FREE_TIER_LIMIT = freePlan?.essayLimit || 3;
       

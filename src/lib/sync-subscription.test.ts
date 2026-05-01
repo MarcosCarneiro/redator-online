@@ -28,7 +28,7 @@ describe('syncUserSubscription', () => {
   });
 
   it('should return false if user has no customerId', async () => {
-    vi.mocked(userRepository.getById).mockResolvedValue({ id: 'user_123', customerId: null } as any);
+    vi.mocked(userRepository.getById).mockResolvedValue({ id: 'user_123', customerId: null } as unknown as never);
     const result = await syncUserSubscription('user_123');
     expect(result).toBe(false);
   });
@@ -42,9 +42,9 @@ describe('syncUserSubscription', () => {
     };
     const mockPlan = { id: 'pro_10' };
 
-    vi.mocked(userRepository.getById).mockResolvedValue(mockUser as any);
-    vi.mocked(stripe.subscriptions.list).mockResolvedValue({ data: [mockSubscription] } as any);
-    vi.mocked(planRepository.getByStripePriceId).mockResolvedValue(mockPlan as any);
+    vi.mocked(userRepository.getById).mockResolvedValue(mockUser as unknown as never);
+    vi.mocked(stripe.subscriptions.list).mockResolvedValue({ data: [mockSubscription] } as unknown as never);
+    vi.mocked(planRepository.getByStripePriceId).mockResolvedValue(mockPlan as unknown as never);
 
     const result = await syncUserSubscription('user_123');
 
@@ -59,8 +59,8 @@ describe('syncUserSubscription', () => {
   it('should handle no active subscriptions by canceling local status', async () => {
     const mockUser = { id: 'user_123', customerId: 'cus_123', subscriptionStatus: 'active' };
 
-    vi.mocked(userRepository.getById).mockResolvedValue(mockUser as any);
-    vi.mocked(stripe.subscriptions.list).mockResolvedValue({ data: [] } as any);
+    vi.mocked(userRepository.getById).mockResolvedValue(mockUser as unknown as never);
+    vi.mocked(stripe.subscriptions.list).mockResolvedValue({ data: [] } as unknown as never);
 
     const result = await syncUserSubscription('user_123');
 
