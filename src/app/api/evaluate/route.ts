@@ -5,7 +5,7 @@ import { auth } from '@/lib/auth';
 import { userRepository } from '@/db/repositories/user.repository';
 import { essayRepository } from '@/db/repositories/essay.repository';
 import { planRepository } from '@/db/repositories/plan.repository';
-import { redis } from '@/lib/redis';
+import { redisService } from '@/lib/redis';
 
 const EvaluationSchema = z.object({
   totalScore: z.number().min(0).max(1000),
@@ -74,7 +74,7 @@ export async function POST(req: Request) {
     if (!user) {
       let usageCount = 0;
       try {
-        usageCount = (await redis.get<number>(`guest:usage:${ip}`)) || 0;
+        usageCount = await redisService.getGuestUsage(ip);
       } catch (error) {
         console.warn('Redis error, falling back to DB:', error);
         usageCount = await essayRepository.getGuestUsageCount(ip);
@@ -176,7 +176,7 @@ export async function POST(req: Request) {
         });
       } else {
         try {
-          await redis.incr(`guest:usage:${ip}`);
+          await redisService.incrementGuestUsage(ip);
         } catch (error) {
           console.error('Failed to increment Redis counter:', error);
         }
