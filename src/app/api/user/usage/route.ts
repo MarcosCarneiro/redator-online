@@ -26,7 +26,9 @@ export async function GET(req: Request) {
         return NextResponse.json({
             essaysUsed: dbUser.essaysUsed || 0,
             essayLimit: essayLimit,
-            planName: dbUser.plan?.name || 'Grátis'
+            planName: dbUser.plan?.name || 'Grátis',
+            subscriptionStatus: dbUser.subscriptionStatus || 'none',
+            subscriptionExpiresAt: dbUser.subscriptionExpiresAt
         });
     } catch (error) {
         return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });

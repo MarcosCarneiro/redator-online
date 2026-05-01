@@ -41,7 +41,10 @@ export const Navbar = () => {
         <div className="nav-links">
           <Link href="/planos">Planos</Link>
           {session && (
-            <Link href="/history">Meu Histórico</Link>
+            <>
+              <Link href="/history">Meu Histórico</Link>
+              <Link href="/billing">Assinatura</Link>
+            </>
           )}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
