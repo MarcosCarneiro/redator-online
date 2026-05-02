@@ -82,9 +82,9 @@ export async function POST(req: Request) {
                 break;
             }
             case 'invoice.payment_succeeded': {
-                const invoice = event.data.object as Stripe.Invoice;
+                const invoice = event.data.object as any;
                 if (invoice.subscription && userId) {
-                    const subscription = await stripe.subscriptions.retrieve(invoice.subscription as string);
+                    const subscription = await stripe.subscriptions.retrieve(invoice.subscription as string) as any;
                     
                     if (!subscription.current_period_end) {
                         console.error('Stripe Webhook: Subscription has no current_period_end', subscription.id);
@@ -117,7 +117,7 @@ export async function POST(req: Request) {
             }
             case 'customer.subscription.updated':
             case 'customer.subscription.deleted': {
-                const subscription = event.data.object as Stripe.Subscription;
+                const subscription = event.data.object as any;
                 
                 if (!userId && subscription.customer) {
                     const customerUser = await userRepository.getByCustomerId(subscription.customer as string);

@@ -26,7 +26,7 @@ export const Pricing = () => {
           // The API already filtered to only allowed plans, 
           // we just ensure the exact order (pro_10 -> pro_100)
           const sorted = data.sort((a, b) => 
-            (PUBLIC_PLANS as string[]).indexOf(a.id) - (PUBLIC_PLANS as string[]).indexOf(b.id)
+            (PUBLIC_PLANS as unknown as string[]).indexOf(a.id) - (PUBLIC_PLANS as unknown as string[]).indexOf(b.id)
           );
           setDbPlans(sorted);
         }

@@ -22,7 +22,7 @@ describe('syncUserSubscription', () => {
   });
 
   it('should return false if no user is found', async () => {
-    vi.mocked(userRepository.getById).mockResolvedValue(null);
+    vi.mocked(userRepository.getById).mockResolvedValue(null as any);
     const result = await syncUserSubscription('user_123');
     expect(result).toBe(false);
   });

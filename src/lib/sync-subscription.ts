@@ -38,9 +38,8 @@ export async function syncUserSubscription(userId: string) {
             const priceId = activeSubscription.items.data[0]?.price.id;
             const plan = await planRepository.getByStripePriceId(priceId);
 
-            const expiresAt = activeSubscription.current_period_end 
-                ? new Date(activeSubscription.current_period_end * 1000)
-                : new Date(Date.now() + 31 * 24 * 60 * 60 * 1000);
+            const expiresAt = (activeSubscription as any).current_period_end
+                ? new Date((activeSubscription as any).current_period_end * 1000)                : new Date(Date.now() + 31 * 24 * 60 * 60 * 1000);
 
             // Reset essays only if it's a newly synced active subscription or was not active
             const isNewSub = currentUser.subscriptionId !== activeSubscription.id;

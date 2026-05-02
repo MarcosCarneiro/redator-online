@@ -80,6 +80,9 @@ Configured using `better-auth` with a Drizzle adapter. Supports Google login.
 5.  **Environment Variables:** Never hardcode secrets. Always use `process.env`.
 6.  **AI Prompts:** The evaluation prompt in `src/app/api/evaluate/route.ts` is highly calibrated for ENEM rules. Modify with extreme caution.
 7.  **Payment Lifecycle:** Subscription states are mapped from Mercado Pago (`authorized`, `paused`, `cancelled`) to the `user` table's `subscriptionStatus` field.
+8.  **Testing Conventions:**
+    - **Unit Tests:** Colocate unit test files alongside the code they test (e.g., `src/lib/sync-subscription.test.ts` next to `src/lib/sync-subscription.ts`).
+    - **End-to-End (E2E) Tests:** Place E2E tests in the dedicated `e2e/` directory (e.g., `e2e/basic.spec.ts`), as they typically test user flows across multiple components.
 
 ## UI/UX Guidelines
 - Maintain a clean, professional aesthetic suitable for an educational platform.
