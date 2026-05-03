@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import imageCompression from 'browser-image-compression';
 import { AlertCircle } from 'lucide-react';
 
 // Components
@@ -13,10 +12,12 @@ import { EssayEditor } from '@/components/EssayEditor';
 import { EvaluationResults } from '@/components/EvaluationResults';
 import { AnalysisLoading } from '@/components/AnalysisLoading';
 import { Pricing } from '@/components/Pricing';
-import { authClient } from '@/lib/auth-client';
+import { FeedbackPrompt } from '@/components/FeedbackPrompt';
 
-// Types
-import { Evaluation } from '@/lib/types';
+// Hooks
+import { useEssayEditor } from '@/hooks/useEssayEditor';
+import { useEssayActions } from '@/hooks/useEssayActions';
+import { authClient } from '@/lib/auth-client';
 
 export default function Home() {
   const { data: session } = authClient.useSession();
@@ -35,45 +36,24 @@ export default function Home() {
 
   const hasPaidPlan = usage && usage.planName !== 'Grátis';
 
-  // State Management
-  const [essay, setEssay] = useState('');
-  const [theme, setTheme] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [transcribing, setTranscribing] = useState(false);
-  const [evaluation, setEvaluation] = useState<Evaluation | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [limitReached, setLimitReached] = useState(false);
-  const [authRequired, setAuthRequired] = useState(false);
-  const [freeLimit, setFreeLimit] = useState(3);
+  // State & Logic via Hooks
+  const { 
+    essay, setEssay, 
+    theme, setTheme, 
+    wordCount, lineEstimate 
+  } = useEssayEditor();
+
+  const {
+    loading, transcribing, 
+    evaluation, setEvaluation,
+    error, limitReached, 
+    authRequired, freeLimit,
+    handleImageUpload, handleSubmit
+  } = useEssayActions({ essay, theme, setEssay });
   
   // Refs
   const resultsRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const isInitialMount = useRef(true);
-
-  // Persistence (Drafts)
-  useEffect(() => {
-    const savedEssay = localStorage.getItem('redator_draft');
-    const savedTheme = localStorage.getItem('redator_theme');
-    
-    // Use requestAnimationFrame to defer state updates and avoid cascading renders lint error
-    if (savedEssay || savedTheme) {
-      requestAnimationFrame(() => {
-        if (savedEssay) setEssay(savedEssay);
-        if (savedTheme) setTheme(savedTheme);
-      });
-    }
-    
-    // Mark as initialized
-    isInitialMount.current = false;
-  }, []);
-
-  useEffect(() => {
-    if (isInitialMount.current) return;
-    
-    localStorage.setItem('redator_draft', essay);
-    localStorage.setItem('redator_theme', theme);
-  }, [essay, theme]);
 
   // Scroll to results when they arrive
   useEffect(() => {
@@ -81,103 +61,6 @@ export default function Home() {
       resultsRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   }, [evaluation]);
-
-  // Derived Business Logic
-  const wordCount = essay.trim() === '' ? 0 : essay.trim().split(/\s+/).length;
-  const lineEstimate = Math.max(0, Math.ceil(essay.split('\n').length + (essay.length / 80)));
-
-  // API Interaction Handlers
-  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    setTranscribing(true);
-    setError(null);
-
-    try {
-      const options = { maxSizeMB: 1, maxWidthOrHeight: 1920, useWebWorker: true };
-      const compressedFile = await imageCompression(file, options);
-      
-      const reader = new FileReader();
-      reader.readAsDataURL(compressedFile);
-      reader.onloadend = async () => {
-        const base64data = reader.result as string;
-        const response = await fetch('/api/transcribe', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ image: base64data }),
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          if (response.status === 401) {
-            setAuthRequired(true);
-            if (errorData.freeLimit) setFreeLimit(errorData.freeLimit);
-          }
-          if (response.status === 403) {
-            setLimitReached(true);
-          }
-          throw new Error(errorData.error || 'Falha ao transcrever a imagem.');
-        }
-        const data = await response.json();
-        setEssay(prev => prev + (prev ? '\n\n' : '') + data.text);
-        setTranscribing(false);
-      };
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Erro ao processar imagem';
-      setError(message);
-      setTranscribing(false);
-    }
-  };
-
-  const handleSubmit = async () => {
-    if (!theme.trim()) {
-      setError('Por favor, informe o tema da redação antes de avaliar.');
-      document.getElementById('theme-input')?.focus();
-      return;
-    }
-
-    if (!essay.trim() || essay.trim().length < 150) {
-      setError('Sua redação precisa ter pelo menos 150 caracteres para uma avaliação precisa.');
-      return;
-    }
-
-    setLoading(true);
-    setError(null);
-    setEvaluation(null);
-    setLimitReached(false);
-    
-    try {
-      const response = await fetch('/api/evaluate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: essay, theme: theme }),
-      });
-      
-      if (response.status === 429) {
-        throw new Error('Muitas requisições. Descanse um pouco e tente novamente mais tarde!');
-      }
-      
-      const data = await response.json().catch(() => ({}));
-
-      if (!response.ok) {
-        if (response.status === 401) {
-          setAuthRequired(true);
-        }
-        if (response.status === 403) {
-          setLimitReached(true);
-        }
-        throw new Error(data.error || 'Falha ao processar a redação.');
-      }
-      
-      setEvaluation(data);
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Erro inesperado.';
-      setError(message);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   return (
     <>
@@ -203,31 +86,11 @@ export default function Home() {
           />
 
           {error && authRequired && !session && (
-            <div style={{ textAlign: 'center', background: '#eff6ff', padding: '2.5rem', borderRadius: '24px', marginTop: '2rem', border: '2px solid #bfdbfe' }}>
-              <h3 style={{ color: '#1e3a8a', marginBottom: '1rem', fontSize: '1.5rem', fontWeight: 800 }}>Faça login para continuar 🚀</h3>
-              <p style={{ color: '#3b82f6', marginBottom: '2rem', fontSize: '1.1rem' }}>
-                Crie sua conta gratuitamente ou faça login para ganhar {freeLimit} avaliações de redação e ter acesso as ferramentas da plataforma!
-              </p>
-              <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}>
-                <button className="btn-primary" onClick={() => authClient.signIn.social({ provider: "google" })} style={{ padding: '0.8rem 2rem' }}>
-                  Entrar com Google
-                </button>
-              </div>
-            </div>
+            <FeedbackPrompt type="auth" freeLimit={freeLimit} />
           )}
 
           {error && limitReached && (
-            <div style={{ textAlign: 'center', background: '#eff6ff', padding: '2.5rem', borderRadius: '24px', marginTop: '2rem', border: '2px solid #bfdbfe' }}>
-              <h3 style={{ color: '#1e3a8a', marginBottom: '1rem', fontSize: '1.5rem', fontWeight: 800 }}>Limite Atingido 🚀</h3>
-              <p style={{ color: '#3b82f6', marginBottom: '2rem', fontSize: '1.1rem' }}>
-                Você já usou todas as suas correções do seu plano atual. Assine um plano para continuar evoluindo!
-              </p>
-              <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}>
-                <a href="#planos" className="btn-primary" style={{ textDecoration: 'none', padding: '0.8rem 2rem' }}>
-                  Ver Planos
-                </a>
-              </div>
-            </div>
+            <FeedbackPrompt type="limit" />
           )}
 
           {error && !limitReached && !authRequired && (
