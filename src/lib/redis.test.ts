@@ -16,30 +16,6 @@ describe('redisService', () => {
     vi.clearAllMocks();
   });
 
-  describe('getGuestUsage', () => {
-    it('should return the usage count from redis', async () => {
-      vi.mocked(redis.get).mockResolvedValue(5);
-      const usage = await redisService.getGuestUsage('127.0.0.1');
-      expect(usage).toBe(5);
-      expect(redis.get).toHaveBeenCalledWith('guest:usage:127.0.0.1');
-    });
-
-    it('should return 0 if redis returns null', async () => {
-      vi.mocked(redis.get).mockResolvedValue(null);
-      const usage = await redisService.getGuestUsage('127.0.0.1');
-      expect(usage).toBe(0);
-    });
-  });
-
-  describe('incrementGuestUsage', () => {
-    it('should increment the usage in redis', async () => {
-      vi.mocked(redis.incr).mockResolvedValue(1);
-      const newVal = await redisService.incrementGuestUsage('127.0.0.1');
-      expect(newVal).toBe(1);
-      expect(redis.incr).toHaveBeenCalledWith('guest:usage:127.0.0.1');
-    });
-  });
-
   describe('Plan Caching', () => {
     const mockPlan = {
       id: 'pro_10',

@@ -9,7 +9,6 @@ import { redisService } from '@/lib/redis';
 import { user as userTable, plans as plansTable } from '@/db/schema';
 import { InferSelectModel } from 'drizzle-orm';
 import { getClientIp } from '@/lib/ip';
-import { getGuestUsageRobust } from '@/lib/usage';
 
 type UserWithPlan = InferSelectModel<typeof userTable> & {
   plan: InferSelectModel<typeof plansTable> | null;
@@ -78,42 +77,41 @@ export async function POST(req: Request) {
     const FREE_TIER_LIMIT = freePlan?.essayLimit || 3;
 
     if (!user) {
-      const usageCount = await getGuestUsageRobust(ip);
-      
-      if (usageCount >= FREE_TIER_LIMIT) {
         return NextResponse.json(
-          { error: `Você atingiu o limite de ${FREE_TIER_LIMIT} avaliações gratuitas. Crie uma conta ou faça login para continuar avaliando suas redações e salvar seu histórico!` },
-          { status: 403 }
+          { 
+            error: `Crie sua conta gratuitamente para ganhar ${FREE_TIER_LIMIT} avaliações de redação!`,
+            freeLimit: FREE_TIER_LIMIT
+          },
+          { status: 401 }
         );
-      }
-    } else {
-        dbUser = await userRepository.getById(user.id) as UserWithPlan | null;
+    }
 
-        if (!dbUser) {
-            return NextResponse.json({ error: 'Usuário não encontrado' }, { status: 404 });
-        }
+    dbUser = await userRepository.getById(user.id) as UserWithPlan | null;
 
-        // Strict Subscription Check
-        const currentPlan = dbUser.plan || { id: 'free', name: 'Grátis', essayLimit: FREE_TIER_LIMIT };
-        const usedCount = dbUser.essaysUsed || 0;
+    if (!dbUser) {
+        return NextResponse.json({ error: 'Usuário não encontrado' }, { status: 404 });
+    }
 
-        // Check if subscription is expired (and not in the process of paying/past_due)
-        if (dbUser.planId !== 'free' && dbUser.subscriptionExpiresAt) {
-            const isExpired = new Date() > new Date(dbUser.subscriptionExpiresAt);
-            if (isExpired && dbUser.subscriptionStatus !== 'active') {
-                 return NextResponse.json(
-                    { error: 'Sua assinatura expirou. Renove seu plano para continuar acessando os benefícios!' },
-                    { status: 403 }
-                );
-            }
-        }
+    // Strict Subscription Check
+    const currentPlan = dbUser.plan || { id: 'free', name: 'Grátis', essayLimit: FREE_TIER_LIMIT };
+    const usedCount = dbUser.essaysUsed || 0;
 
-        if (usedCount >= currentPlan.essayLimit) {
-            return NextResponse.json(
-                { error: `Você atingiu o limite de ${currentPlan.essayLimit} redações do seu plano ${currentPlan.name}. Faça um upgrade para continuar!` },
+    // Check if subscription is expired (and not in the process of paying/past_due)
+    if (dbUser.planId !== 'free' && dbUser.subscriptionExpiresAt) {
+        const isExpired = new Date() > new Date(dbUser.subscriptionExpiresAt);
+        if (isExpired && dbUser.subscriptionStatus !== 'active') {
+             return NextResponse.json(
+                { error: 'Sua assinatura expirou. Renove seu plano para continuar acessando os benefícios!' },
                 { status: 403 }
             );
         }
+    }
+
+    if (usedCount >= currentPlan.essayLimit) {
+        return NextResponse.json(
+            { error: `Você atingiu o limite de ${currentPlan.essayLimit} redações do seu plano ${currentPlan.name}. Faça um upgrade para continuar!` },
+            { status: 403 }
+        );
     }
 
     const { text, theme } = await req.json();
@@ -162,33 +160,17 @@ export async function POST(req: Request) {
     const validatedData = EvaluationSchema.parse(parsedData);
 
     try {
-      if (user) {
-        // Atomic increment in DB
-        await userRepository.incrementEssayCount(user.id);
+      // Atomic increment in DB
+      await userRepository.incrementEssayCount(user.id);
 
-        await essayRepository.create({
-          userId: user.id,
-          userIp: ip,
-          theme,
-          content: text,
-          totalScore: validatedData.totalScore,
-          evaluation: validatedData,
-        });
-      } else {
-        try {
-          await redisService.incrementGuestUsage(ip);
-        } catch (error) {
-          console.error('Failed to increment Redis counter:', error);
-        }
-
-        await essayRepository.create({
-          userIp: ip,
-          theme,
-          content: text,
-          totalScore: validatedData.totalScore,
-          evaluation: validatedData,
-        });
-      }
+      await essayRepository.create({
+        userId: user.id,
+        userIp: ip,
+        theme,
+        content: text,
+        totalScore: validatedData.totalScore,
+        evaluation: validatedData,
+      });
     } catch (dbError) {
       console.error('Database Persistence Error:', dbError);
     }

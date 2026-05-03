@@ -15,25 +15,6 @@ export default redis;
 const CACHE_TTL_SECONDS = 86400; // 24 hours
 
 export const redisService = {
-  // Guest Usage Tracking
-  async getGuestUsage(ip: string): Promise<number> {
-    try {
-      return (await redis.get<number>(`guest:usage:${ip}`)) || 0;
-    } catch (error) {
-      console.warn(`[Redis] Error getting guest usage for ${ip}:`, error);
-      throw error;
-    }
-  },
-
-  async incrementGuestUsage(ip: string): Promise<number> {
-    try {
-      return await redis.incr(`guest:usage:${ip}`);
-    } catch (error) {
-      console.warn(`[Redis] Error incrementing guest usage for ${ip}:`, error);
-      throw error; // Or handle silently depending on caller
-    }
-  },
-
   // Plan Caching
   async getCachedPublicPlans(): Promise<Plan[] | null> {
     try {
