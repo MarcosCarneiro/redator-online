@@ -40,7 +40,7 @@ describe('syncUserSubscription', () => {
       current_period_end: Math.floor(Date.now() / 1000) + 10000,
       items: { data: [{ price: { id: 'price_123' } }] },
     };
-    const mockPlan = { id: 'pro_10' };
+    const mockPlan = { id: 'pro_2' };
 
     vi.mocked(userRepository.getById).mockResolvedValue(mockUser as unknown as never);
     vi.mocked(stripe.subscriptions.list).mockResolvedValue({ data: [mockSubscription] } as unknown as never);
@@ -52,7 +52,7 @@ describe('syncUserSubscription', () => {
     expect(userRepository.updateSubscription).toHaveBeenCalledWith('user_123', expect.objectContaining({
       subscriptionStatus: 'active',
       subscriptionId: 'sub_123',
-      planId: 'pro_10',
+      planId: 'pro_2',
     }));
   });
 

@@ -40,8 +40,6 @@ export async function POST(req: Request) {
         }
     }
 
-    const isUnlimited = dbUser.planId === 'pro_100'; 
-    
     // We fall back to 3 manually since we don't have the free plan fetched here unless we do it
     let limit = dbUser.plan?.essayLimit;
     if (!limit) {
@@ -50,9 +48,9 @@ export async function POST(req: Request) {
     
     const usedCount = dbUser.transcriptionsUsed || 0;
 
-    if (!isUnlimited && usedCount >= limit) {
+    if (usedCount >= limit) {
         return NextResponse.json(
-          { error: `Você atingiu o limite de ${limit} transcrições do seu plano atual. Faça o upgrade para o Plano Intensivo para ter transcrições ilimitadas!` },
+          { error: `Você atingiu o limite de ${limit} transcrições do seu plano atual. Faça o upgrade para um plano maior para ter mais transcrições!` },
           { status: 403 }
         );
     }

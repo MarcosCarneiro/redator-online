@@ -67,27 +67,39 @@ export const Pricing = () => {
   };
 
   const getPlanDetails = (plan: Plan) => {
-    if (plan.id === 'pro_100') {
+    if (plan.id === 'pro_8') {
       return {
         features: [
-          `${plan.essayLimit} correções por mês`,
-          'Análise ultra-detalhada',
+          'Análise ultra-detalhada (IA)',
           'Foco total na Nota 1000',
-          'Transcrição ilimitada de fotos',
-          'Dicas exclusivas de repertório'
+          'Sugestões avançadas de melhoria',
+          'Dicas exclusivas de repertório',
+          'Histórico completo salvo'
         ],
         icon: <Rocket className="text-blue-500" size={24} />,
+        popular: false
+      };
+    }
+    if (plan.id === 'pro_4') {
+      return {
+        features: [
+          'Feedback detalhado por competência',
+          'Sugestões de melhoria (IA)',
+          'Suporte prioritário por e-mail',
+          'Histórico completo salvo'
+        ],
+        icon: <Sparkles className="text-amber-500" size={24} />,
         popular: true
       };
     }
+    // Default: pro_2
     return {
       features: [
-        `${plan.essayLimit} correções por mês`,
-        'Feedback detalhado por competência',
+        'Feedback essencial por competência',
         'Sugestões de melhoria (IA)',
         'Histórico completo salvo'
       ],
-      icon: <Zap className="text-amber-500" size={24} />,
+      icon: <Zap className="text-emerald-500" size={24} />,
       popular: false
     };
   };
@@ -119,6 +131,9 @@ export const Pricing = () => {
                   <div className="card-header">
                     <div className="plan-icon">{details.icon}</div>
                     <h3>{plan.name}</h3>
+                    <div className="corrections-badge">
+                      <strong>{plan.essayLimit} correções</strong> por mês
+                    </div>
                     <div className="price">
                       <span className="currency">R$</span>
                       <span className="amount">{formattedPrice}</span>
@@ -178,9 +193,9 @@ export const Pricing = () => {
 
         .pricing-grid {
           display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+          grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
           gap: 2rem;
-          max-width: 900px;
+          max-width: 1100px;
           margin: 0 auto;
         }
 
@@ -223,6 +238,27 @@ export const Pricing = () => {
         .card-header {
           text-align: center;
           margin-bottom: 2.5rem;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+        }
+
+        .corrections-badge {
+          display: inline-block;
+          background: #eff6ff;
+          color: var(--primary);
+          border: 1px solid #dbeafe;
+          padding: 8px 18px;
+          border-radius: 100px;
+          font-size: 0.95rem;
+          font-weight: 600;
+          margin: 0.5rem 0 1rem;
+        }
+
+        .pricing-card.popular .corrections-badge {
+          background: var(--primary);
+          color: white;
+          border-color: var(--primary);
         }
 
         .plan-icon {

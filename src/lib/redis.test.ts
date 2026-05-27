@@ -18,24 +18,24 @@ describe('redisService', () => {
 
   describe('Plan Caching', () => {
     const mockPlan = {
-      id: 'pro_10',
-      name: 'Pro 10',
-      price: 1000,
-      essayLimit: 10,
+      id: 'pro_2',
+      name: 'Plano Mensal - 2',
+      price: 490,
+      essayLimit: 2,
       stripePriceId: 'price_123',
       description: 'Test plan'
     };
 
     it('should get cached plan by ID', async () => {
       vi.mocked(redis.get).mockResolvedValue(mockPlan);
-      const plan = await redisService.getCachedPlanById('pro_10');
+      const plan = await redisService.getCachedPlanById('pro_2');
       expect(plan).toEqual(mockPlan);
-      expect(redis.get).toHaveBeenCalledWith('plan:id:pro_10');
+      expect(redis.get).toHaveBeenCalledWith('plan:id:pro_2');
     });
 
     it('should set cached plan by ID with 24h TTL', async () => {
-      await redisService.setCachedPlanById('pro_10', mockPlan);
-      expect(redis.set).toHaveBeenCalledWith('plan:id:pro_10', mockPlan, { ex: 86400 });
+      await redisService.setCachedPlanById('pro_2', mockPlan);
+      expect(redis.set).toHaveBeenCalledWith('plan:id:pro_2', mockPlan, { ex: 86400 });
     });
   });
 });
