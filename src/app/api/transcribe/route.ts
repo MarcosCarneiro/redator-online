@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { planRepository } from '@/db/repositories/plan.repository';
 import { userRepository } from '@/db/repositories/user.repository';
+import { heavyRatelimit } from '@/lib/redis';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -29,6 +30,28 @@ export async function POST(req: Request) {
 
     const dbUser = await userRepository.getById(user.id);
     if (!dbUser) return NextResponse.json({ error: 'Usuário não encontrado' }, { status: 404 });
+    
+    // Rate Limiting strictly by userId (Fail-Open)
+    try {
+        const { success, limit, reset, remaining } = await heavyRatelimit.limit(
+            `ratelimit:heavy:${user.id}`
+        );
+        if (!success) {
+            return NextResponse.json(
+                { error: "Você atingiu o limite de envios rápidos de transcrição. Por favor, aguarde um minuto antes de tentar novamente." },
+                { 
+                    status: 429,
+                    headers: {
+                        'X-RateLimit-Limit': limit.toString(),
+                        'X-RateLimit-Remaining': remaining.toString(),
+                        'X-RateLimit-Reset': reset.toString(),
+                    }
+                }
+            );
+        }
+    } catch (redisError) {
+        console.warn("[Redis RateLimit] Erro de conexão no limitador. Falhando aberto:", redisError);
+    }
     
     if (dbUser.planId !== 'free' && dbUser.subscriptionExpiresAt) {
         const isExpired = new Date() > new Date(dbUser.subscriptionExpiresAt);

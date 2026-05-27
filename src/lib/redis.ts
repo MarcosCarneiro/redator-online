@@ -1,4 +1,5 @@
 import { Redis } from '@upstash/redis';
+import { Ratelimit } from '@upstash/ratelimit';
 import { InferSelectModel } from 'drizzle-orm';
 import { plans } from '@/db/schema';
 
@@ -8,6 +9,13 @@ type Plan = InferSelectModel<typeof plans>;
 export const redis = new Redis({
   url: process.env.REDIS_STORAGE_KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL || '',
   token: process.env.REDIS_STORAGE_KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN || '',
+});
+
+export const heavyRatelimit = new Ratelimit({
+  redis: redis,
+  limiter: Ratelimit.slidingWindow(5, '60 s'),
+  analytics: true,
+  prefix: '@upstash/ratelimit:heavy',
 });
 
 export default redis;
