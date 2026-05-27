@@ -5,7 +5,7 @@ import { auth } from '@/lib/auth';
 import { userRepository } from '@/db/repositories/user.repository';
 import { essayRepository } from '@/db/repositories/essay.repository';
 import { planRepository } from '@/db/repositories/plan.repository';
-import { heavyRatelimit } from '@/lib/redis';
+import { redisService } from '@/lib/redis';
 import { user as userTable, plans as plansTable } from '@/db/schema';
 import { InferSelectModel } from 'drizzle-orm';
 
@@ -90,25 +90,9 @@ export async function POST(req: Request) {
     }
 
     // Rate Limiting strictly by userId (Fail-Open)
-    try {
-        const { success, limit, reset, remaining } = await heavyRatelimit.limit(
-            `ratelimit:heavy:${user.id}`
-        );
-        if (!success) {
-            return NextResponse.json(
-                { error: "Você atingiu o limite de envios rápidos de redação. Por favor, aguarde um minuto antes de tentar novamente." },
-                { 
-                    status: 429,
-                    headers: {
-                        'X-RateLimit-Limit': limit.toString(),
-                        'X-RateLimit-Remaining': remaining.toString(),
-                        'X-RateLimit-Reset': reset.toString(),
-                    }
-                }
-            );
-        }
-    } catch (redisError) {
-        console.warn("[Redis RateLimit] Erro de conexão no limitador. Falhando aberto:", redisError);
+    const rateLimit = await redisService.checkHeavyRateLimit(user.id, 'redação');
+    if (!rateLimit.allowed) {
+        return rateLimit.response!;
     }
 
     // Strict Subscription Check

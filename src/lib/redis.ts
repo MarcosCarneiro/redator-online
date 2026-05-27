@@ -2,6 +2,7 @@ import { Redis } from '@upstash/redis';
 import { Ratelimit } from '@upstash/ratelimit';
 import { InferSelectModel } from 'drizzle-orm';
 import { plans } from '@/db/schema';
+import { NextResponse } from 'next/server';
 
 type Plan = InferSelectModel<typeof plans>;
 
@@ -23,6 +24,34 @@ export default redis;
 const CACHE_TTL_SECONDS = 86400; // 24 hours
 
 export const redisService = {
+  // Heavy Action Rate Limiting
+  async checkHeavyRateLimit(userId: string, actionName: string = 'esta operação') {
+    try {
+      const { success, limit, reset, remaining } = await heavyRatelimit.limit(
+        `ratelimit:heavy:${userId}`
+      );
+      if (!success) {
+        return {
+          allowed: false,
+          response: NextResponse.json(
+            { error: `Você atingiu o limite de envios rápidos de ${actionName}. Por favor, aguarde um minuto antes de tentar novamente.` },
+            {
+              status: 429,
+              headers: {
+                'X-RateLimit-Limit': limit.toString(),
+                'X-RateLimit-Remaining': remaining.toString(),
+                'X-RateLimit-Reset': reset.toString(),
+              }
+            }
+          )
+        };
+      }
+    } catch (redisError) {
+      console.warn("[Redis RateLimit] Erro de conexão no limitador. Falhando aberto:", redisError);
+    }
+    return { allowed: true, response: null };
+  },
+
   // Plan Caching
   async getCachedPublicPlans(): Promise<Plan[] | null> {
     try {
