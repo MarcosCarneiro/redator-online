@@ -21,7 +21,6 @@ export const essayRepository = {
 
     async create(data: {
         userId?: string;
-        userIp: string;
         theme: string;
         content: string;
         totalScore: number;

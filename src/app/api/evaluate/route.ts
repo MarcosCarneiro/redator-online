@@ -8,7 +8,6 @@ import { planRepository } from '@/db/repositories/plan.repository';
 import { redisService } from '@/lib/redis';
 import { user as userTable, plans as plansTable } from '@/db/schema';
 import { InferSelectModel } from 'drizzle-orm';
-import { getClientIp } from '@/lib/ip';
 
 type UserWithPlan = InferSelectModel<typeof userTable> & {
   plan: InferSelectModel<typeof plansTable> | null;
@@ -68,8 +67,6 @@ export async function POST(req: Request) {
   try {
     const session = await auth.api.getSession({ headers: req.headers });
     const user = session?.user;
-    
-    const ip = getClientIp(req);
     
     let dbUser: UserWithPlan | null = null;
 
@@ -165,7 +162,6 @@ export async function POST(req: Request) {
 
       await essayRepository.create({
         userId: user.id,
-        userIp: ip,
         theme,
         content: text,
         totalScore: validatedData.totalScore,

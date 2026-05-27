@@ -33,7 +33,6 @@ export const user = pgTable("user", {
 export const essays = pgTable('essays', {
   id: uuid('id').primaryKey().defaultRandom(),
   userId: text('user_id').references(() => user.id),
-  userIp: text('user_ip'),
   theme: text('theme').notNull(),
   content: text('content').notNull(),
   totalScore: integer('total_score'),
