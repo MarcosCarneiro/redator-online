@@ -40,6 +40,8 @@ export default function Home() {
   const { 
     essay, setEssay, 
     theme, setTheme, 
+    fontFamily, setFontFamily,
+    saveStatus,
     wordCount, lineEstimate 
   } = useEssayEditor();
 
@@ -83,6 +85,9 @@ export default function Home() {
             wordCount={wordCount}
             lineEstimate={lineEstimate}
             fileInputRef={fileInputRef}
+            fontFamily={fontFamily}
+            setFontFamily={setFontFamily}
+            saveStatus={saveStatus}
           />
 
           {error && authRequired && !session && (
