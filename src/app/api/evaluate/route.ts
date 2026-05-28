@@ -14,6 +14,13 @@ type UserWithPlan = InferSelectModel<typeof userTable> & {
 };
 
 
+const HighlightSchema = z.object({
+  text: z.string(),
+  type: z.enum(['grammar', 'repertoire', 'structure', 'cohesion', 'proposal']),
+  description: z.string(),
+  suggestion: z.string().optional()
+});
+
 const EvaluationSchema = z.object({
   totalScore: z.number().min(0).max(1000),
   competencies: z.array(z.object({
@@ -22,7 +29,8 @@ const EvaluationSchema = z.object({
     explanation: z.string(),
     tips: z.string()
   })).length(5),
-  generalFeedback: z.string()
+  generalFeedback: z.string(),
+  highlights: z.array(HighlightSchema).default([])
 });
 
 const openai = new OpenAI({
@@ -48,6 +56,19 @@ Instruções de Calibração:
 - Competência 4: Conhecimento dos mecanismos linguísticos (coesão/conectivos).
 - Competência 5: Elaborar proposta de intervenção para o problema abordado.
 
+REGRAS CRÍTICAS PARA HIGHLIGHTS (Destaques no Texto):
+Você deve extrair de 5 a 10 trechos de texto da redação que demonstrem pontos de melhoria (desvios) ou méritos dignos de menção.
+Cada entrada na lista de highlights deve conter:
+- "text": O trecho exato, caractere por caractere, idêntico a como aparece na redação do usuário (incluindo espaços, erros de ortografia e pontuações). Não mude nada neste campo!
+- "type": Classifique estritamente entre:
+  - 'grammar' (Competência 1: desvios gramaticais, ortografia, regência, concordância, crase, acentuação)
+  - 'repertoire' (Competência 2: uso eficaz ou inadequado de repertório sociocultural/filosófico/histórico)
+  - 'structure' (Competência 3: projeto de texto, incoerências, repetição excessiva de ideias, circularidade)
+  - 'cohesion' (Competência 4: problemas ou acertos de coesão, falta de conectivos interparágrafos ou inadequação de conectores)
+  - 'proposal' (Competência 5: elementos da proposta de intervenção - agente, ação, meio/modo, efeito, detalhamento)
+- "description": Explicação didática apontando o erro técnico ou mérito com base no manual do ENEM.
+- "suggestion": Para erros/desvios, forneça a palavra ou frase corrigida sugerida para substituição direta. Para méritos, deixe em branco.
+
 Formato de Saída (JSON Estrito):
 {
   "totalScore": soma_das_notas,
@@ -58,7 +79,10 @@ Formato de Saída (JSON Estrito):
     { "name": "Competência 4: Coesão", "score": 200, "explanation": "...", "tips": "..." },
     { "name": "Competência 5: Proposta de Intervenção", "score": 200, "explanation": "...", "tips": "..." }
   ],
-  "generalFeedback": "..."
+  "generalFeedback": "...",
+  "highlights": [
+    { "text": "trecho_original_exato", "type": "grammar", "description": "...", "suggestion": "..." }
+  ]
 }
 `;
 

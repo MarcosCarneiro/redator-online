@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { CheckCircle2, Lightbulb, FileText, Download, ChevronDown } from 'lucide-react';
+import { Highlight, segmentEssayText } from '@/lib/highlight-parser';
 
 interface Competency {
   name: string;
@@ -14,6 +15,7 @@ interface Evaluation {
   totalScore: number;
   competencies: Competency[];
   generalFeedback: string;
+  highlights?: Highlight[]; // Nova propriedade opcional para destaques
 }
 
 interface EvaluationResultsProps {
@@ -132,6 +134,7 @@ const CompetencyCard = ({ comp, index }: { comp: Competency; index: number }) =>
 export const EvaluationResults = ({ evaluation, theme, essay, resultsRef }: EvaluationResultsProps) => {
   const [animatedScore, setAnimatedScore] = useState(0);
   const [isMounted, setIsMounted] = useState(false);
+  const [activeHighlight, setActiveHighlight] = useState<Highlight | null>(null);
 
   useEffect(() => {
     setIsMounted(true);
@@ -163,6 +166,41 @@ export const EvaluationResults = ({ evaluation, theme, essay, resultsRef }: Eval
       clearTimeout(animTimer);
     };
   }, [evaluation.totalScore]);
+
+  // Segmentação da redação cruzando com os destaques retornados da IA
+  const segments = segmentEssayText(essay, evaluation.highlights || []);
+
+  const getHighlightColor = (type: string) => {
+    if (type === 'grammar') return '#ef4444'; // Vermelho
+    if (type === 'cohesion') return '#a855f7'; // Roxo
+    if (type === 'repertoire') return '#3b82f6'; // Azul
+    if (type === 'proposal') return '#10b981'; // Verde
+    return '#f59e0b'; // Amber (Estrutura)
+  };
+
+  const getHighlightBg = (type: string) => {
+    if (type === 'grammar') return 'rgba(239, 68, 68, 0.08)';
+    if (type === 'cohesion') return 'rgba(168, 85, 247, 0.08)';
+    if (type === 'repertoire') return 'rgba(59, 130, 246, 0.08)';
+    if (type === 'proposal') return 'rgba(16, 185, 129, 0.08)';
+    return 'rgba(245, 158, 11, 0.08)';
+  };
+
+  const getHighlightLabel = (type: string) => {
+    if (type === 'grammar') return 'Competência 1: Desvio de Norma Culta';
+    if (type === 'repertoire') return 'Competência 2: Uso de Repertório';
+    if (type === 'structure') return 'Competência 3: Projeto de Texto';
+    if (type === 'cohesion') return 'Competência 4: Articulação e Coesão';
+    return 'Competência 5: Proposta de Intervenção';
+  };
+
+  const getHighlightCompetencyTip = (type: string) => {
+    if (type === 'grammar') return 'Revise a pontuação, regência verbal/nominal e desvios de grafia para maximizar seus pontos na Competência 1.';
+    if (type === 'repertoire') return 'Utilize sempre repertório de fontes confiáveis, pertinentes ao tema e devidamente legitimadas.';
+    if (type === 'structure') return 'Desenvolva sua redação em introdução, desenvolvimento 1, desenvolvimento 2 e conclusão para um projeto de texto linear.';
+    if (type === 'cohesion') return 'Utilize conectores variados inter e intraparágrafos para evitar a repetição lexical de palavras coesivas.';
+    return 'Garantir que a proposta de intervenção responda: Quem fará? O que fará? Como? Com qual efeito? E incluir um detalhamento.';
+  };
 
   return (
     <div className="results-section" ref={resultsRef || null}>
@@ -234,6 +272,130 @@ export const EvaluationResults = ({ evaluation, theme, essay, resultsRef }: Eval
         <h2 style={{ fontSize: '2.5rem', fontWeight: 800, color: 'var(--text-dark)', letterSpacing: '-0.025em' }}>
           Sua Análise está pronta!
         </h2>
+      </div>
+
+      {/* NOVO: Split View Interativo - Correção Inteligente Direta no Texto (Wow Factor) */}
+      <div className="split-results-layout no-print">
+        {/* Folha Oficial pautada do ENEM */}
+        <div className="paper-sheet-container">
+          <div className="paper-sheet-header">
+            <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+              <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#ef4444' }}></div>
+              <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#fbbf24' }}></div>
+              <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#10b981' }}></div>
+            </div>
+            <div style={{ fontSize: '0.72rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              Folha de Redação ENEM
+            </div>
+          </div>
+          
+          <div className="paper-sheet-body">
+            <div className="paper-sheet-margin" />
+            
+            {/* Números das linhas ENEM */}
+            <div className="paper-sheet-line-numbers">
+              {[...Array(30)].map((_, i) => (
+                <div key={i}>{i + 1}</div>
+              ))}
+            </div>
+            
+            {/* Renderização de segmentos de texto mesclados com destaques */}
+            {segments.map((seg, i) => {
+              if (seg.highlight) {
+                const hl = seg.highlight;
+                const isActive = activeHighlight?.text === hl.text;
+                return (
+                  <span 
+                    key={i} 
+                    className={`hl-segment ${hl.type} ${isActive ? 'active' : ''}`}
+                    onClick={() => setActiveHighlight(hl)}
+                    onMouseEnter={() => setActiveHighlight(hl)}
+                  >
+                    {seg.text}
+                  </span>
+                );
+              } else {
+                return <span key={i}>{seg.text}</span>;
+              }
+            })}
+          </div>
+        </div>
+
+        {/* Painel Sticky de scanner de IA */}
+        <div className="correction-panel-card">
+          {activeHighlight ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', height: '100%' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span 
+                  style={{ 
+                    fontSize: '0.7rem', 
+                    fontWeight: 800, 
+                    color: getHighlightColor(activeHighlight.type), 
+                    background: getHighlightBg(activeHighlight.type), 
+                    padding: '4px 10px', 
+                    borderRadius: '6px', 
+                    textTransform: 'uppercase', 
+                    letterSpacing: '0.05em' 
+                  }}
+                >
+                  {getHighlightLabel(activeHighlight.type)}
+                </span>
+                
+                <button 
+                  onClick={() => setActiveHighlight(null)}
+                  style={{ border: 'none', background: 'transparent', color: '#94a3b8', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 700 }}
+                >
+                  Limpar
+                </button>
+              </div>
+              
+              <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#1e293b', margin: 0, letterSpacing: '-0.01em' }}>
+                Análise do Trecho
+              </h3>
+              
+              <p style={{ fontSize: '0.925rem', color: '#475569', lineHeight: 1.6, margin: 0 }}>
+                {activeHighlight.description}
+              </p>
+
+              {activeHighlight.suggestion && (
+                <div>
+                  <h4 style={{ fontSize: '0.78rem', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0.5rem 0 0.5rem' }}>
+                    Antes e Depois
+                  </h4>
+                  <div className="comparison-box">
+                    <div className="comparison-before">
+                      <span style={{ fontWeight: 800, opacity: 0.7 }}>Original:</span>
+                      <span>"{activeHighlight.text}"</span>
+                    </div>
+                    <div className="comparison-after">
+                      <span style={{ fontWeight: 800, opacity: 0.7 }}>Sugerido:</span>
+                      <span>"{activeHighlight.suggestion}"</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              <div style={{ marginTop: 'auto', padding: '1rem', background: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0', display: 'flex', gap: '10px', fontSize: '0.85rem' }}>
+                <Lightbulb size={18} style={{ color: '#f59e0b', flexShrink: 0, marginTop: '2px' }} />
+                <div style={{ color: '#475569', lineHeight: 1.5 }}>
+                  <strong>Dica Oficial:</strong> {getHighlightCompetencyTip(activeHighlight.type)}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="correction-empty-state">
+              <div className="correction-empty-icon">
+                <FileText size={28} />
+              </div>
+              <h3 style={{ fontSize: '1.2rem', fontWeight: 800, color: '#1e293b', margin: 0 }}>
+                Correção Inteligente Ativa
+              </h3>
+              <p style={{ fontSize: '0.875rem', color: '#64748b', margin: 0, lineHeight: 1.6, maxWidth: '280px' }}>
+                Passe o mouse ou clique sobre as frases destacadas na folha de redação à esquerda para ver os desvios, méritos e correções sugeridas pela nossa IA.
+              </p>
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="competency-grid" style={{ maxWidth: '800px', margin: '0 auto 4rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
