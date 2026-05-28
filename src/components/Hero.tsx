@@ -1,4 +1,4 @@
-import { Sparkles } from 'lucide-react';
+import { Sparkles, Brain, Check, Award } from 'lucide-react';
 
 export const Hero = ({ onStartClick }: { onStartClick: () => void }) => (
   <section className="hero">
@@ -11,24 +11,63 @@ export const Hero = ({ onStartClick }: { onStartClick: () => void }) => (
         A plataforma mais avançada de correção de redação. 
         Envie uma foto da sua folha ou escreva diretamente no nosso editor.
       </p>
-      <div style={{ marginTop: '2.5rem', display: 'flex', gap: '1rem', alignItems: 'center' }}>
-        <button className="btn-primary" onClick={onStartClick}>
+      <div style={{ marginTop: '2.5rem', display: 'flex', gap: '1.25rem', alignItems: 'center', flexWrap: 'wrap' }}>
+        <button className="btn-primary-premium" onClick={onStartClick}>
           Começar agora
         </button>
-        <div style={{ fontSize: '0.9rem', color: 'var(--text-light)', fontWeight: 500 }}>
-          🚀 +15k redações corrigidas este mês
+        <div style={{ fontSize: '0.95rem', color: 'var(--text-light)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <span style={{ fontSize: '1.2rem' }}>🚀</span> +15k redações corrigidas este mês
         </div>
       </div>
     </div>
     <div className="hero-image">
-      <svg viewBox="0 0 500 500" xmlns="http://www.w3.org/2000/svg" style={{ filter: 'drop-shadow(0 20px 30px rgba(0,0,0,0.1))' }}>
-        <rect x="50" y="50" width="400" height="400" rx="40" fill="#fff" />
-        <path d="M150 150 H350" stroke="#f1f5f9" strokeWidth="20" strokeLinecap="round" />
-        <path d="M150 220 H350" stroke="#f1f5f9" strokeWidth="20" strokeLinecap="round" />
-        <path d="M150 290 H280" stroke="#f1f5f9" strokeWidth="20" strokeLinecap="round" />
-        <circle cx="380" cy="380" r="50" fill="var(--primary-light)" />
-        <path d="M365 380 L375 390 L395 370" stroke="white" strokeWidth="6" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
+      <div className="hero-illustration">
+        <div className="hero-glow-bg" />
+        
+        {/* Mockup 3D Translúcido / Glassmorphism */}
+        <div className="floating-sheet">
+          <div style={{ display: 'flex', justifyContent: 'between', alignItems: 'center', marginBottom: '24px' }}>
+            <div style={{ display: 'flex', gap: '4px' }}>
+              <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ef4444' }} />
+              <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#f59e0b' }} />
+              <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981' }} />
+            </div>
+            <div style={{ fontSize: '0.65rem', color: 'var(--text-light)', fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', marginLeft: 'auto' }}>
+              ENEM 2026
+            </div>
+          </div>
+          
+          <div className="floating-sheet-line" style={{ width: '85%' }} />
+          <div className="floating-sheet-line" style={{ width: '95%' }} />
+          <div className="floating-sheet-line" style={{ width: '70%' }} />
+          <div className="floating-sheet-line" style={{ width: '90%' }} />
+          <div className="floating-sheet-line" style={{ width: '80%' }} />
+          <div className="floating-sheet-line" style={{ width: '65%' }} />
+          <div className="floating-sheet-line" style={{ width: '75%' }} />
+          <div className="floating-sheet-line" style={{ width: '45%' }} />
+        </div>
+
+        {/* Orbiting Glassmorphic Badges */}
+        <div className="hero-floating-badge badge-score">
+          <Sparkles size={15} style={{ fill: 'rgba(255,255,255,0.2)' }} />
+          <span>Nota 1000</span>
+        </div>
+
+        <div className="hero-floating-badge badge-c1">
+          <Check size={14} strokeWidth={3} />
+          <span>C1: Excelente</span>
+        </div>
+
+        <div className="hero-floating-badge badge-ia">
+          <Brain size={14} />
+          <span>IA Scanner</span>
+        </div>
+
+        <div className="hero-floating-badge badge-spark">
+          <Award size={14} />
+          <span>Proposta Nota 200</span>
+        </div>
+      </div>
     </div>
   </section>
 );

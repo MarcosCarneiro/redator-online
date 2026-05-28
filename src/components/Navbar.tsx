@@ -32,6 +32,8 @@ export const Navbar = () => {
     await authClient.signOut();
   };
 
+  const progress = usage && usage.essayLimit > 0 ? (usage.essaysUsed / usage.essayLimit) * 100 : 0;
+
   return (
     <nav className="navbar">
       <div className="nav-content">
@@ -103,18 +105,26 @@ export const Navbar = () => {
           )}
         </div>
       </div>
+      {session && usage && (
+        <div className="nav-progress-bar" style={{ width: `${Math.min(progress, 100)}%` }} />
+      )}
       <style jsx>{`
         .usage-badge {
           display: flex;
           align-items: center;
           gap: 6px;
-          background: #f0f9ff;
+          background: #eff6ff;
           color: var(--primary);
           padding: 0.4rem 0.8rem;
           border-radius: 100px;
           font-size: 0.8rem;
           font-weight: 700;
-          border: 1px solid #bae6fd;
+          border: 1px solid rgba(59, 130, 246, 0.15);
+          transition: all 0.2s ease;
+        }
+        .usage-badge:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 4px 12px rgba(59, 130, 246, 0.1);
         }
         .usage-badge small { font-weight: 400; opacity: 0.8; }
       `}</style>
