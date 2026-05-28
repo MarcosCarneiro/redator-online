@@ -1,6 +1,7 @@
 'use client';
 
-import { CheckCircle2, Lightbulb, FileText, Download } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { CheckCircle2, Lightbulb, FileText, Download, ChevronDown } from 'lucide-react';
 
 interface Competency {
   name: string;
@@ -22,12 +23,146 @@ interface EvaluationResultsProps {
   resultsRef?: React.RefObject<HTMLDivElement | null>;
 }
 
-export const EvaluationResults = ({ evaluation, theme, essay, resultsRef }: EvaluationResultsProps) => {
-  const getScoreClass = (score: number) => {
-    if (score <= 80) return 'bar-low';
-    if (score <= 160) return 'bar-mid';
-    return 'bar-high';
+// Subcomponente Modular para gerenciar o Accordion e a Gauge de cada competência individualmente
+const CompetencyCard = ({ comp, index }: { comp: Competency; index: number }) => {
+  const [isOpen, setIsOpen] = useState(false);
+
+  const getScoreColor = (score: number) => {
+    if (score >= 160) return '#10b981'; // Emerald Green
+    if (score >= 120) return '#f59e0b'; // Amber Yellow
+    return '#f97316'; // Orange Warning
   };
+
+  const getScoreBg = (score: number) => {
+    if (score >= 160) return 'rgba(16, 185, 129, 0.08)';
+    if (score >= 120) return 'rgba(245, 158, 11, 0.08)';
+    return 'rgba(249, 115, 22, 0.08)';
+  };
+
+  return (
+    <div className={`comp-card-premium ${isOpen ? 'open' : ''}`}>
+      <div 
+        className="comp-card-header" 
+        onClick={() => setIsOpen(!isOpen)}
+        style={{ cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1.5rem', padding: '1.5rem 2rem', userSelect: 'none' }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', flex: 1 }}>
+          <div 
+            className="comp-icon-wrapper" 
+            style={{ 
+              color: getScoreColor(comp.score), 
+              background: getScoreBg(comp.score), 
+              width: '40px', 
+              height: '40px', 
+              borderRadius: '10px', 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center', 
+              flexShrink: 0 
+            }}
+          >
+            <CheckCircle2 size={22} />
+          </div>
+          <div>
+            <h4 style={{ margin: 0, fontSize: '0.82rem', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.075em' }}>
+              Competência {index + 1}
+            </h4>
+            <h3 style={{ margin: '0.15rem 0 0', fontSize: '1.05rem', fontWeight: 800, color: '#1e293b', lineHeight: 1.2 }}>
+              {comp.name}
+            </h3>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
+          {/* Circular progress gauge */}
+          <div className="comp-gauge-wrapper" style={{ display: 'flex', alignItems: 'center' }}>
+            <svg width="48" height="48" viewBox="0 0 48 48">
+              <circle cx="24" cy="24" r="19" fill="transparent" stroke="#f1f5f9" strokeWidth="3.5" />
+              <circle 
+                cx="24" 
+                cy="24" 
+                r="19" 
+                fill="transparent" 
+                stroke={getScoreColor(comp.score)} 
+                strokeWidth="3.5" 
+                strokeDasharray="119.38" 
+                strokeDashoffset={119.38 - (119.38 * (comp.score / 200))}
+                strokeLinecap="round"
+                transform="rotate(-90 24 24)"
+                style={{ transition: 'stroke-dashoffset 1.5s cubic-bezier(0.4, 0, 0.2, 1)' }}
+              />
+              <text 
+                x="24" 
+                y="27.5" 
+                textAnchor="middle" 
+                fontWeight="900" 
+                fontSize="9" 
+                fill="#1e293b"
+              >
+                {comp.score}
+              </text>
+            </svg>
+          </div>
+
+          <div className="comp-chevron-wrapper" style={{ display: 'flex', alignItems: 'center' }}>
+            <ChevronDown size={20} className="comp-chevron" />
+          </div>
+        </div>
+      </div>
+
+      <div className="comp-card-body-wrapper">
+        <div className="comp-card-body">
+          <div style={{ padding: '0 2rem 2rem' }}>
+            <p style={{ color: '#475569', fontSize: '0.925rem', lineHeight: 1.7, margin: '0 0 1.25rem' }}>
+              {comp.explanation}
+            </p>
+            <div className="comp-tips-box">
+              <Lightbulb size={18} style={{ flexShrink: 0, color: '#fbbf24', marginTop: '2px' }} />
+              <div style={{ fontSize: '0.875rem', lineHeight: 1.6, color: '#451a03' }}>
+                <strong style={{ color: '#78350f' }}>Como melhorar:</strong> {comp.tips}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export const EvaluationResults = ({ evaluation, theme, essay, resultsRef }: EvaluationResultsProps) => {
+  const [animatedScore, setAnimatedScore] = useState(0);
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+    let startTimestamp: number | null = null;
+    const duration = 1800; // 1.8 segundos
+    const startValue = 0;
+    const endValue = evaluation.totalScore;
+
+    const step = (timestamp: number) => {
+      if (!startTimestamp) startTimestamp = timestamp;
+      const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+      
+      // Easing cúbico ease-out
+      const easeProgress = 1 - Math.pow(1 - progress, 3);
+      setAnimatedScore(Math.floor(easeProgress * (endValue - startValue) + startValue));
+      
+      if (progress < 1) {
+        window.requestAnimationFrame(step);
+      } else {
+        setAnimatedScore(endValue);
+      }
+    };
+
+    const animTimer = setTimeout(() => {
+      window.requestAnimationFrame(step);
+    }, 150);
+
+    return () => {
+      clearTimeout(animTimer);
+    };
+  }, [evaluation.totalScore]);
 
   return (
     <div className="results-section" ref={resultsRef || null}>
@@ -46,39 +181,64 @@ export const EvaluationResults = ({ evaluation, theme, essay, resultsRef }: Eval
       </div>
 
       <div className="score-hero">
-        <div className="score-circle">
-          <span className="lbl">Nota Final</span>
-          <span className="val">{evaluation.totalScore}</span>
+        <div className="score-ring-wrapper">
+          <svg className="score-ring-svg" viewBox="0 0 200 200">
+            <defs>
+              <linearGradient id="scoreGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stopColor="var(--primary-light)" />
+                <stop offset="50%" stopColor="#a855f7" />
+                <stop offset="100%" stopColor="#10b981" />
+              </linearGradient>
+            </defs>
+            
+            {/* Círculo do fundo */}
+            <circle 
+              cx="100" 
+              cy="100" 
+              r="80" 
+              stroke="#f1f5f9" 
+              strokeWidth="12" 
+              fill="transparent" 
+            />
+            
+            {/* Círculo dinâmico animado */}
+            <circle 
+              cx="100" 
+              cy="100" 
+              r="80" 
+              stroke="url(#scoreGradient)" 
+              strokeWidth="12" 
+              fill="transparent" 
+              strokeDasharray="502.65" 
+              strokeDashoffset={502.65 - (502.65 * (animatedScore / 1000))} 
+              strokeLinecap="round"
+              transform="rotate(-90 100 100)"
+              style={{ transition: 'stroke-dashoffset 0.1s linear' }}
+            />
+          </svg>
+          
+          <div className="score-inner-glass">
+            <span className="score-lbl">Nota Final</span>
+            <span className="score-val">{animatedScore}</span>
+          </div>
+
+          {/* Efeito de faíscas/confete para notas excelentes >= 900 */}
+          {evaluation.totalScore >= 900 && isMounted && (
+            <div className="confetti-container">
+              {[...Array(12)].map((_, i) => (
+                <div key={i} className={`sparkle sparkle-${i}`} />
+              ))}
+            </div>
+          )}
         </div>
-        <h2 style={{ fontSize: '2.5rem' }}>Sua Análise está pronta!</h2>
+        <h2 style={{ fontSize: '2.5rem', fontWeight: 800, color: 'var(--text-dark)', letterSpacing: '-0.025em' }}>
+          Sua Análise está pronta!
+        </h2>
       </div>
 
-      <div className="competency-grid">
+      <div className="competency-grid" style={{ maxWidth: '800px', margin: '0 auto 4rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
         {evaluation.competencies.map((comp, index) => (
-          <div key={index} className="comp-card">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3 style={{ color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <CheckCircle2 size={20} />
-                {comp.name}
-              </h3>
-              <span style={{ fontWeight: 800, fontSize: '1.2rem' }}>{comp.score} pts</span>
-            </div>
-            <div className="comp-progress">
-              <div 
-                className={`comp-bar ${getScoreClass(comp.score)}`}
-                style={{ width: `${(comp.score / 200) * 100}%` }}
-              ></div>
-            </div>
-            <p style={{ color: 'var(--text-light)', fontSize: '0.95rem', lineHeight: 1.7 }}>
-              {comp.explanation}
-            </p>
-            <div style={{ marginTop: '1.5rem', padding: '1rem', background: '#fff', borderRadius: '12px', border: '1px dashed #e2e8f0', fontSize: '0.9rem', display: 'flex', gap: '12px' }}>
-              <Lightbulb size={20} style={{ flexShrink: 0, color: '#f59e0b' }} />
-              <div>
-                <strong>Como melhorar:</strong> {comp.tips}
-              </div>
-            </div>
-          </div>
+          <CompetencyCard key={index} comp={comp} index={index} />
         ))}
       </div>
 
@@ -87,7 +247,7 @@ export const EvaluationResults = ({ evaluation, theme, essay, resultsRef }: Eval
           <FileText size={20} />
           Resumo Estrutural
         </h3>
-        <p style={{ color: 'var(--text-dark)', lineHeight: 1.8 }}>{evaluation.generalFeedback}</p>
+        <p style={{ color: 'var(--text-dark)', lineHeight: 1.8, margin: 0 }}>{evaluation.generalFeedback}</p>
       </div>
 
       <div style={{ textAlign: 'center', marginTop: '4rem' }}>
