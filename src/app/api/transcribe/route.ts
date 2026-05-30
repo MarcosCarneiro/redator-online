@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { planRepository } from '@/db/repositories/plan.repository';
 import { userRepository } from '@/db/repositories/user.repository';
-import { redisService } from '@/lib/redis';
+import { QuotaService } from '@/lib/quota';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -28,37 +28,12 @@ export async function POST(req: Request) {
       );
     }
 
-    const dbUser = await userRepository.getById(user.id);
-    if (!dbUser) return NextResponse.json({ error: 'Usuário não encontrado' }, { status: 404 });
-    
-    // Rate Limiting strictly by userId (Fail-Open)
-    const rateLimit = await redisService.checkHeavyRateLimit(user.id, 'transcrição');
-    if (!rateLimit.allowed) {
-        return rateLimit.response!;
-    }
-    
-    if (dbUser.planId !== 'free' && dbUser.subscriptionExpiresAt) {
-        const isExpired = new Date() > new Date(dbUser.subscriptionExpiresAt);
-        if (isExpired && dbUser.subscriptionStatus !== 'active') {
-              return NextResponse.json(
-                { error: 'Sua assinatura expirou. Renove seu plano para continuar acessando os benefícios!' },
-                { status: 403 }
-            );
-        }
-    }
-
-    // We fall back to 3 manually since we don't have the free plan fetched here unless we do it
-    let limit = dbUser.plan?.essayLimit;
-    if (!limit) {
-        limit = FREE_TIER_LIMIT;
-    }
-    
-    const usedCount = dbUser.transcriptionsUsed || 0;
-
-    if (usedCount >= limit) {
+    // Centralized Quota and Limit Check using QuotaService
+    const quotaCheck = await QuotaService.checkUserQuota(user.id, 'transcription');
+    if (!quotaCheck.allowed) {
         return NextResponse.json(
-          { error: `Você atingiu o limite de ${limit} transcrições do seu plano atual. Faça o upgrade para um plano maior para ter mais transcrições!` },
-          { status: 403 }
+            { error: quotaCheck.error },
+            { status: quotaCheck.status }
         );
     }
 

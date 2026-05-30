@@ -5,14 +5,7 @@ import { auth } from '@/lib/auth';
 import { userRepository } from '@/db/repositories/user.repository';
 import { essayRepository } from '@/db/repositories/essay.repository';
 import { planRepository } from '@/db/repositories/plan.repository';
-import { redisService } from '@/lib/redis';
-import { user as userTable, plans as plansTable } from '@/db/schema';
-import { InferSelectModel } from 'drizzle-orm';
-
-type UserWithPlan = InferSelectModel<typeof userTable> & {
-  plan: InferSelectModel<typeof plansTable> | null;
-};
-
+import { QuotaService } from '@/lib/quota';
 
 const EvaluationSchema = z.object({
   totalScore: z.number().min(0).max(1000),
@@ -67,8 +60,6 @@ export async function POST(req: Request) {
   try {
     const session = await auth.api.getSession({ headers: req.headers });
     const user = session?.user;
-    
-    let dbUser: UserWithPlan | null = null;
 
     const freePlan = await planRepository.getById('free');
     const FREE_TIER_LIMIT = freePlan?.essayLimit || 3;
@@ -83,37 +74,12 @@ export async function POST(req: Request) {
         );
     }
 
-    dbUser = await userRepository.getById(user.id) as UserWithPlan | null;
-
-    if (!dbUser) {
-        return NextResponse.json({ error: 'Usuário não encontrado' }, { status: 404 });
-    }
-
-    // Rate Limiting strictly by userId (Fail-Open)
-    const rateLimit = await redisService.checkHeavyRateLimit(user.id, 'redação');
-    if (!rateLimit.allowed) {
-        return rateLimit.response!;
-    }
-
-    // Strict Subscription Check
-    const currentPlan = dbUser.plan || { id: 'free', name: 'Grátis', essayLimit: FREE_TIER_LIMIT };
-    const usedCount = dbUser.essaysUsed || 0;
-
-    // Check if subscription is expired (and not in the process of paying/past_due)
-    if (dbUser.planId !== 'free' && dbUser.subscriptionExpiresAt) {
-        const isExpired = new Date() > new Date(dbUser.subscriptionExpiresAt);
-        if (isExpired && dbUser.subscriptionStatus !== 'active') {
-             return NextResponse.json(
-                { error: 'Sua assinatura expirou. Renove seu plano para continuar acessando os benefícios!' },
-                { status: 403 }
-            );
-        }
-    }
-
-    if (usedCount >= currentPlan.essayLimit) {
+    // Centralized Quota and Limit Check using QuotaService
+    const quotaCheck = await QuotaService.checkUserQuota(user.id, 'essay');
+    if (!quotaCheck.allowed) {
         return NextResponse.json(
-            { error: `Você atingiu o limite de ${currentPlan.essayLimit} redações do seu plano ${currentPlan.name}. Faça um upgrade para continuar!` },
-            { status: 403 }
+            { error: quotaCheck.error },
+            { status: quotaCheck.status }
         );
     }
 
