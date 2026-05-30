@@ -20,21 +20,29 @@ import { useEssayActions } from '@/hooks/useEssayActions';
 import { authClient } from '@/lib/auth-client';
 
 export default function Home() {
-  const { data: session } = authClient.useSession();
+  const { data: session, isPending } = authClient.useSession();
   const [usage, setUsage] = useState<{ planName: string } | null>(null);
+  const [fetchingUsage, setFetchingUsage] = useState(true);
 
   useEffect(() => {
-    if (session) {
-      fetch('/api/user/usage')
-        .then(res => res.json())
-        .then(data => {
-          if (!data.error) setUsage(data);
-        })
-        .catch(console.error);
+    if (isPending) return;
+
+    if (!session) {
+      Promise.resolve().then(() => setFetchingUsage(false));
+      return;
     }
-  }, [session]);
+
+    fetch('/api/user/usage')
+      .then(res => res.json())
+      .then(data => {
+        if (!data.error) setUsage(data);
+      })
+      .catch(console.error)
+      .finally(() => setFetchingUsage(false));
+  }, [session, isPending]);
 
   const hasPaidPlan = usage && usage.planName !== 'Grátis';
+  const shouldShowPricing = !isPending && !fetchingUsage && !hasPaidPlan;
 
   // State & Logic via Hooks
   const { 
@@ -69,11 +77,11 @@ export default function Home() {
       <Navbar />
       
       {loading && <AnalysisLoading />}
-
+ 
       <div className="container">
         <Hero onStartClick={() => document.getElementById('editor')?.scrollIntoView({ behavior: 'smooth' })} />
         <BentoGrid />
-        {!hasPaidPlan && <Pricing />}
+        {shouldShowPricing && <Pricing />}
 
         <main>
           <EssayEditor 
