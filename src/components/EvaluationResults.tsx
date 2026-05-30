@@ -23,6 +23,35 @@ interface EvaluationResultsProps {
   resultsRef?: React.RefObject<HTMLDivElement | null>;
 }
 
+const getScoreTheme = (score: number) => {
+  if (score >= 900) {
+    return {
+      startColor: '#10b981', // Verde Esmeralda (Excelente)
+      endColor: '#06b6d4',   // Ciano/Teal
+      textColor: '#047857',
+    };
+  }
+  if (score >= 700) {
+    return {
+      startColor: '#4f46e5', // Índigo/Azul Escuro (Bom)
+      endColor: '#3b82f6',   // Azul Principal
+      textColor: '#1d4ed8',
+    };
+  }
+  if (score >= 500) {
+    return {
+      startColor: '#f59e0b', // Âmbar (Regular)
+      endColor: '#ea580c',   // Laranja
+      textColor: '#b45309',
+    };
+  }
+  return {
+    startColor: '#f43f5e', // Rose/Vermelho (Alerta)
+    endColor: '#be123c',   // Crimson
+    textColor: '#b91c1c',
+  };
+};
+
 // Subcomponente Modular para gerenciar o Accordion e a Gauge de cada competência individualmente
 const CompetencyCard = ({ comp, index }: { comp: Competency; index: number }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -132,6 +161,7 @@ const CompetencyCard = ({ comp, index }: { comp: Competency; index: number }) =>
 export const EvaluationResults = ({ evaluation, theme, essay, resultsRef }: EvaluationResultsProps) => {
   const [animatedScore, setAnimatedScore] = useState(0);
   const [isMounted, setIsMounted] = useState(false);
+  const scoreTheme = getScoreTheme(evaluation.totalScore);
 
   useEffect(() => {
     setIsMounted(true);
@@ -185,9 +215,8 @@ export const EvaluationResults = ({ evaluation, theme, essay, resultsRef }: Eval
           <svg className="score-ring-svg" viewBox="0 0 200 200">
             <defs>
               <linearGradient id="scoreGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stopColor="var(--primary-light)" />
-                <stop offset="50%" stopColor="#a855f7" />
-                <stop offset="100%" stopColor="#10b981" />
+                <stop offset="0%" stopColor={scoreTheme.startColor} />
+                <stop offset="100%" stopColor={scoreTheme.endColor} />
               </linearGradient>
             </defs>
             
@@ -219,7 +248,16 @@ export const EvaluationResults = ({ evaluation, theme, essay, resultsRef }: Eval
           
           <div className="score-inner-glass">
             <span className="score-lbl">Nota Final</span>
-            <span className="score-val">{animatedScore}</span>
+            <span 
+              className="score-val"
+              style={{
+                background: `linear-gradient(135deg, ${scoreTheme.startColor} 0%, ${scoreTheme.endColor} 100%)`,
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+              }}
+            >
+              {animatedScore}
+            </span>
           </div>
 
           {/* Efeito de faíscas/confete para notas excelentes >= 900 */}

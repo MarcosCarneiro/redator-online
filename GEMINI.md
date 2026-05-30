@@ -14,8 +14,8 @@ Redator Online is a web application that allows users to submit essays for autom
 - **Database:** PostgreSQL (hosted on Neon)
 - **ORM:** Drizzle ORM
 - **Authentication:** better-auth (with Google Social Provider)
-- **AI:** OpenAI (GPT-4o-mini)
-- **Payments:** Mercado Pago (Subscriptions and Recurring Payments)
+- **AI:** OpenAI (GPT-4o-mini with Vision capability for image transcription)
+- **Payments:** Stripe (Subscriptions and Recurring Payments)
 - **Validation:** Zod
 
 ## Building and Running
@@ -23,25 +23,34 @@ Redator Online is a web application that allows users to submit essays for autom
 ### Prerequisites
 - Node.js (v20+ recommended)
 - PostgreSQL database (e.g., Neon)
-- Mercado Pago Developer Account
+- Stripe Developer Account
+- Upstash Redis Database
 - OpenAI API Key
 
 ### Environment Setup
 Create a `.env.local` file with the following variables:
 ```env
-# Database
+# Database (Neon PostgreSQL)
 POSTGRES_URL=
 POSTGRES_URL_NON_POOLING=
 
-# Auth
+# Auth (better-auth)
 BETTER_AUTH_SECRET=
 BETTER_AUTH_URL=http://localhost:3000
+NEXT_PUBLIC_BETTER_AUTH_URL=http://localhost:3000
 GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
 
-# AI
+# AI (OpenAI API)
 OPENAI_API_KEY=
 
+# Payments (Stripe)
+STRIPE_SECRET_KEY=
+STRIPE_WEBHOOK_SECRET=
+
+# Rate Limiting & Caching (Upstash Redis)
+UPSTASH_REDIS_REST_URL=
+UPSTASH_REDIS_REST_TOKEN=
 ```
 
 ### Key Commands
@@ -62,9 +71,12 @@ OPENAI_API_KEY=
 Configured using `better-auth` with a Drizzle adapter. Supports Google login.
 
 ### API Routes (`src/app/api/`)
-- `evaluate/route.ts`: The core logic for essay evaluation. It validates the submission, checks user limits (3 free for guests, plan-based for users), calls OpenAI with a specialized ENEM prompt, and saves the results.
-- `webhook/stripe/route.ts`: Handles payment and subscription status updates from Stripe. Includes signature verification and external reference mapping to user IDs.
-- `user/usage/route.ts`: Provides current essay usage and plan limits for the logged-in user.
+- `evaluate/route.ts`: Core logic for essay evaluation. It validates the submission, enforces mandatory authentication (guests/non-logged users are not allowed to submit, preventing API abuse), checks and decrements user limits (free tier gets 3 credits upon registration), calls OpenAI with a calibrated ENEM rubric prompt, and saves the results in PostgreSQL.
+- `transcribe/route.ts`: Transcribes handwritten essays from images using OpenAI GPT-4o-mini's Vision API. Protects against anonymous abuse by requiring authentication, and enforces plan limits.
+- `checkout/route.ts`: Creates Stripe Checkout Sessions for plan subscriptions.
+- `billing/portal/route.ts`: Creates Stripe Customer Portal sessions so users can self-manage their subscriptions (cancel, update payment methods, etc.).
+- `webhook/stripe/route.ts`: Listens to Stripe webhook events (checkout success, invoice payments, cancellations) to update user plan and subscription status in the PostgreSQL database.
+- `user/usage/route.ts`: Provides active essay usage, transcription limits, and plan details for the logged-in user.
 
 ### Components (`src/components/`)
 - `EssayEditor.tsx`: The main interface for inputting and submitting essays.
@@ -79,8 +91,10 @@ Configured using `better-auth` with a Drizzle adapter. Supports Google login.
 4.  **Error Handling:** Implement robust error handling in API routes, specifically for AI hallucinations or third-party service failures.
 5.  **Environment Variables:** Never hardcode secrets. Always use `process.env`.
 6.  **AI Prompts:** The evaluation prompt in `src/app/api/evaluate/route.ts` is highly calibrated for ENEM rules. Modify with extreme caution.
-7.  **Payment Lifecycle:** Subscription states are mapped from Mercado Pago (`authorized`, `paused`, `cancelled`) to the `user` table's `subscriptionStatus` field.
-8.  **Testing Conventions:**
+7.  **Payment Lifecycle:** Subscription states are mapped from Stripe events (active, past_due, canceled) to the `user` table's `subscriptionStatus` and `planId` fields. The system leverages the Stripe Customer Portal for self-service subscription management.
+8.  **Anonymous Access Policy:** All major AI actions (Essay Evaluation and OCR Transcription) strictly require an authenticated session (`better-auth`). Unauthenticated requests are rejected with a `401 Unauthorized` status to prevent heavy API consumption and resource abuse. Upon registering, users are automatically placed on a 'free' tier with 3 essay credits.
+9.  **Rate Limiting:** Heavy operations (essay evaluations and transcribing) are rate-limited via Upstash Redis/KV using the user's ID to prevent high load and prompt injection/abuse.
+10. **Testing Conventions:**
     - **Unit Tests:** Colocate unit test files alongside the code they test (e.g., `src/lib/sync-subscription.test.ts` next to `src/lib/sync-subscription.ts`).
     - **End-to-End (E2E) Tests:** Place E2E tests in the dedicated `e2e/` directory (e.g., `e2e/basic.spec.ts`), as they typically test user flows across multiple components.
 
