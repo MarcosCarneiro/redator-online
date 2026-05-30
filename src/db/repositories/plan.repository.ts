@@ -23,6 +23,12 @@ export const planRepository = {
         return plans;
     },
 
+    async getPublicPlansDirect() {
+        return db.query.plans.findMany({
+            where: inArray(plansTable.id, [...PUBLIC_PLANS])
+        });
+    },
+
     async getById(id: string) {
         // Try Cache
         const cached = await redisService.getCachedPlanById(id);
