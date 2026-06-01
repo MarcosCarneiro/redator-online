@@ -22,13 +22,12 @@ import { authClient } from '@/lib/auth-client';
 export default function Home() {
   const { data: session, isPending } = authClient.useSession();
   const [usage, setUsage] = useState<{ planName: string } | null>(null);
-  const [fetchingUsage, setFetchingUsage] = useState(true);
+  const [hasFetchedUsage, setHasFetchedUsage] = useState(false);
 
   useEffect(() => {
     if (isPending) return;
 
     if (!session) {
-      Promise.resolve().then(() => setFetchingUsage(false));
       return;
     }
 
@@ -38,9 +37,10 @@ export default function Home() {
         if (!data.error) setUsage(data);
       })
       .catch(console.error)
-      .finally(() => setFetchingUsage(false));
+      .finally(() => setHasFetchedUsage(true));
   }, [session, isPending]);
 
+  const fetchingUsage = session ? !hasFetchedUsage : false;
   const hasPaidPlan = usage && usage.planName !== 'Grátis';
   const shouldShowPricing = !isPending && !fetchingUsage && !hasPaidPlan;
 
@@ -55,7 +55,7 @@ export default function Home() {
 
   const {
     loading, transcribing, 
-    evaluation, setEvaluation,
+    evaluation, 
     error, limitReached, 
     authRequired, freeLimit,
     handleImageUpload, handleSubmit

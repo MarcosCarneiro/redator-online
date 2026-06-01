@@ -164,7 +164,13 @@ export const EvaluationResults = ({ evaluation, theme, essay, resultsRef }: Eval
   const scoreTheme = getScoreTheme(evaluation.totalScore);
 
   useEffect(() => {
-    setIsMounted(true);
+    const mountTimer = setTimeout(() => {
+      setIsMounted(true);
+    }, 150);
+    return () => clearTimeout(mountTimer);
+  }, []);
+
+  useEffect(() => {
     let startTimestamp: number | null = null;
     const duration = 1800; // 1.8 segundos
     const startValue = 0;
