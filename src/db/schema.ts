@@ -36,6 +36,11 @@ export const essays = pgTable('essays', {
   theme: text('theme').notNull(),
   content: text('content').notNull(),
   totalScore: integer('total_score'),
+  c1Score: integer('c1_score'),
+  c2Score: integer('c2_score'),
+  c3Score: integer('c3_score'),
+  c4Score: integer('c4_score'),
+  c5Score: integer('c5_score'),
   evaluation: jsonb('evaluation'),
   createdAt: timestamp('created_at').defaultNow(),
 });

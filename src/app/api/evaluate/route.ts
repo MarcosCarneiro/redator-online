@@ -128,6 +128,12 @@ export async function POST(req: Request) {
 
     const validatedData = EvaluationSchema.parse(parsedData);
 
+    const c1Score = validatedData.competencies[0]?.score ?? 0;
+    const c2Score = validatedData.competencies[1]?.score ?? 0;
+    const c3Score = validatedData.competencies[2]?.score ?? 0;
+    const c4Score = validatedData.competencies[3]?.score ?? 0;
+    const c5Score = validatedData.competencies[4]?.score ?? 0;
+
     try {
       // Atomic increment in DB
       await userRepository.incrementEssayCount(user.id);
@@ -137,6 +143,11 @@ export async function POST(req: Request) {
         theme,
         content: text,
         totalScore: validatedData.totalScore,
+        c1Score,
+        c2Score,
+        c3Score,
+        c4Score,
+        c5Score,
         evaluation: validatedData,
       });
     } catch (dbError) {
